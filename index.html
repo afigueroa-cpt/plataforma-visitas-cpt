@@ -702,74 +702,49 @@ function VisitTable({rows,title,showClose,onClose}){
 }
 
 
-// ═══ Configuración Airtable (PROXY CLOUDFLARE Y OPTIMIZADA) ═══
+// ═══ Configuración Proxy Cloudflare (sin token expuesto) ═══
 const AIRTABLE_CONFIG = {
-  proxyUrl: 'https://proxy-cpt-airtable.afigueroa.workers.dev',
-  baseId: 'appWlu93kKFmi6LA7',
-  tblVisitas: 'tbl6tUZEOXJ03qTAW',
-  tblPlan: 'tbljws4T5ric5oGao'
+  proxyUrl: 'https://proxy-cpt-airtable.afigueroa.workers.dev'
 };
 
 const Airtable = {
-  async listAll(tableId) {
-    const url = `${AIRTABLE_CONFIG.proxyUrl}/${AIRTABLE_CONFIG.baseId}/${tableId}`;
-    let records = [];
-    let offset = null;
+  async listAll(tableKey) {
     try {
-      do {
-        const fullUrl = offset ? `${url}?offset=${offset}` : url;
-        const r = await fetch(fullUrl); // Eliminada la inyección de Bearer Token
-        if (!r.ok) return {ok:false, error:'HTTP '+r.status};
-        const d = await r.json();
-        records = records.concat(d.records || []);
-        offset = d.offset;
-      } while (offset);
-      const data = records.map(rec => ({...rec.fields, _recordId: rec.id}));
-      return {ok:true, data};
+      const r = await fetch(`${AIRTABLE_CONFIG.proxyUrl}/list?table=${tableKey}`);
+      if (!r.ok) return {ok:false, error:'HTTP '+r.status};
+      return await r.json();
     } catch(e) { return {ok:false, error:String(e)}; }
   },
-  async update(tableId, recordId, fields) {
+  async update(tableKey, recordId, fields) {
     try {
-      const url = `${AIRTABLE_CONFIG.proxyUrl}/${AIRTABLE_CONFIG.baseId}/${tableId}/${recordId}`;
       const cleanFields = {};
       for (const [k,v] of Object.entries(fields)) {
         if (k === '_recordId') continue;
         if (v !== undefined && v !== null) cleanFields[k] = v;
       }
-      const r = await fetch(url, {
+      const r = await fetch(`${AIRTABLE_CONFIG.proxyUrl}/update?table=${tableKey}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({fields: cleanFields})
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({recordId, fields: cleanFields})
       });
-      if (!r.ok) {
-        const err = await r.text();
-        return {ok:false, error:err};
-      }
+      if (!r.ok) { const err = await r.text(); return {ok:false, error:err}; }
       const d = await r.json();
       return {ok:true, data:{...d.fields, _recordId:d.id}};
     } catch(e) { return {ok:false, error:String(e)}; }
   },
-  async create(tableId, fields) {
+  async create(tableKey, fields) {
     try {
-      const url = `${AIRTABLE_CONFIG.proxyUrl}/${AIRTABLE_CONFIG.baseId}/${tableId}`;
       const cleanFields = {};
       for (const [k,v] of Object.entries(fields)) {
         if (k === '_recordId') continue;
         if (v !== undefined && v !== null && v !== '') cleanFields[k] = v;
       }
-      const r = await fetch(url, {
+      const r = await fetch(`${AIRTABLE_CONFIG.proxyUrl}/create?table=${tableKey}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({fields: cleanFields})
       });
-      if (!r.ok) {
-        const err = await r.text();
-        return {ok:false, error:err};
-      }
+      if (!r.ok) { const err = await r.text(); return {ok:false, error:err}; }
       const d = await r.json();
       return {ok:true, data:{...d.fields, _recordId:d.id}};
     } catch(e) { return {ok:false, error:String(e)}; }
@@ -783,15 +758,16 @@ function App(){
   const [syncingAT,setSyncingAT]=useState(false);
   const [onlineAT,setOnlineAT]=useState(true);
 
-// Carga inicial desde Airtable - MODIFICADO A SECUENCIAL PARA EVITAR ERROR 429
+  // Carga inicial desde Airtable
   useEffect(()=>{
     async function load(){
       setLoadingAT(true);
       try {
-        // Peticiones secuenciales (una tras otra)
-        const rv = await Airtable.listAll(AIRTABLE_CONFIG.tblVisitas);
-        const rp = await Airtable.listAll(AIRTABLE_CONFIG.tblPlan);
-        
+        const [rv, rp] = await Promise.all([
+          Airtable.listAll('visitas'),
+          Airtable.listAll('plan')
+        ]);
+        // Normalizar fechas: si vienen en ISO (YYYY-MM-DD) convertir a DD/MM/AAAA
         const normalizeDate=(d)=>{
           if(!d)return '';
           const s=String(d).trim();
@@ -964,7 +940,7 @@ function App(){
     setSyncingAT(true);
     const updated={...o,...editForm};
     if(o._recordId){
-      const res=await Airtable.update(AIRTABLE_CONFIG.tblPlan, o._recordId, editForm);
+      const res=await Airtable.update('plan', o._recordId, editForm);
       setSyncingAT(false);
       if(res.ok){
         setPlanVisits(p=>p.map(v=>v.id===id?{...updated,_recordId:o._recordId}:v));
@@ -994,7 +970,7 @@ function App(){
       if(!regForm.fechaVisita){showToast('Ingrese fecha','err');return;}
       const newVisit={...regForm,id:'V'+uid().toUpperCase().slice(0,5)};
       setSyncingAT(true);
-      const res=await Airtable.create(AIRTABLE_CONFIG.tblVisitas, newVisit);
+      const res=await Airtable.create('visitas', newVisit);
       setSyncingAT(false);
       if(res.ok){
         setVisits(p=>[...p,res.data]);
