@@ -1003,21 +1003,9 @@ function App(){
     if(editForm.estado==='Suspendida'&&!(editForm.justificacionDesviacion||'').trim()){showToast('Ingrese justificación para suspensión','err');return;}
     setSyncingAT(true);
 
-    // Excluir 'nuevaFecha' — no existe como columna en Airtable
     const {nuevaFecha:_nf,...editFormClean}=editForm;
-    // Solo campos que existen en tblPlan de Airtable
-    const fieldsToSave=isReprg?{
-      estado:'Reprogramada',
-      fechaVisita:editForm.nuevaFecha,
-      areaEje:editForm.areaEje||'',
-      region:editForm.region||'',
-      recinto:editForm.recinto||'',
-      tipoVisita:editForm.tipoVisita||'',
-      tipoRecinto:editForm.tipoRecinto||'',
-      expertoEncargado:editForm.expertoEncargado||'',
-      tema:o.tema||'',
-    }:{
-      // Solo campos que existen en tblPlan — tipos estrictos para Airtable
+    // Solo campos seguros para Airtable — excluimos Single Select problemáticos
+    const fieldsToSave={
       estado:editFormClean.estado,
       areaEje:editFormClean.areaEje||'',
       recinto:editFormClean.recinto||'',
@@ -1028,10 +1016,8 @@ function App(){
       analistaEncargado:editFormClean.analistaEncargado||'',
       equipoReal:editFormClean.equipoReal||'',
       fechaVisita:editFormClean.fechaVisita||'',
-      mesReal:editFormClean.mesReal||'',
       diasTotalReal:parseFloat(editFormClean.diasTotalReal)||0,
       totalParticipantesReal:parseInt(editFormClean.totalParticipantesReal)||0,
-      tema:editFormClean.tema||'',
     };
     const updated={...o,...fieldsToSave};
     if(o._recordId){
@@ -1334,17 +1320,15 @@ function App(){
               if((isSusp||isReprg)&&!confirmForm.justificacion.trim()){showToast('Ingrese justificación','err');return;}
               const fechaOriginal=v.fechaPlanOriginal||v.fechaVisita||'';
               const fields=isReprg?{
-                estado:'Reprogramada',
-                fechaVisita:confirmForm.nuevaFecha,
+                estado:'Suspendida',
                 areaEje:confirmForm.areaEje||'',
-                region:confirmForm.region||'',
                 recinto:confirmForm.recinto||'',
+                region:confirmForm.region||'',
                 tipoVisita:confirmForm.tipoVisita||'',
                 tipoRecinto:confirmForm.tipoRecinto||'',
                 expertoEncargado:confirmForm.expertoEncargado||'',
-                tema:v.tema||'',
               }:{
-                // Solo campos que existen en tblPlan — tipos estrictos para Airtable
+                // Solo campos compatibles con Airtable
                 estado:confirmForm.resultado,
                 areaEje:confirmForm.areaEje||'',
                 recinto:confirmForm.recinto||'',
@@ -1354,10 +1338,8 @@ function App(){
                 expertoEncargado:confirmForm.expertoEncargado||'',
                 equipoReal:confirmForm.equipoReal||'',
                 fechaVisita:isSusp?v.fechaVisita:confirmForm.fechaVisita,
-                mesReal:confirmForm.mesReal||'',
                 diasTotalReal:parseFloat(confirmForm.diasTotalReal)||0,
                 totalParticipantesReal:parseInt(confirmForm.totalParticipantesReal)||0,
-                tema:v.tema||'',
               };
               setSyncingAT(true);
               if(v._recordId){
