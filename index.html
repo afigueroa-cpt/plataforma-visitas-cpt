@@ -727,6 +727,14 @@ const AIRTABLE_CONFIG = {
   proxyUrl: 'https://proxy-cpt-airtable.afigueroa.workers.dev'
 };
 
+// Convierte DD/MM/AAAA → YYYY-MM-DD para Airtable
+const toAirtableDate = d => {
+  if(!d) return null;
+  const p = d.split('/');
+  if(p.length === 3) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  return d; // ya está en otro formato
+};
+
 const Airtable = {
   async listAll(tableKey) {
     try {
@@ -1000,6 +1008,7 @@ function App(){
     if(!editUnlocked){setShowPwdPrompt(true);return;}
     const o=planVisits.find(v=>v.id===id);if(!o)return;
     if(editForm.estado==='Realizada'&&!editForm.fechaVisita){showToast('Ingrese fecha real','err');return;}
+    if(editForm.fechaVisita&&!/^\d{2}\/\d{2}\/\d{4}$/.test(editForm.fechaVisita)){showToast('Formato de fecha incorrecto. Use DD/MM/AAAA','err');return;}
     if(editForm.estado==='Suspendida'&&!(editForm.justificacionDesviacion||'').trim()){showToast('Ingrese justificación para suspensión','err');return;}
     setSyncingAT(true);
 
