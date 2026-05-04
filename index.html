@@ -853,6 +853,15 @@ function App(){
   const [filterRegion,setFilterRegion]=useState('');
   const [filterMes,setFilterMes]=useState('');
   const [filterYear,setFilterYear]=useState('');
+  // Column-level filters for plan table
+  const [colFilters,setColFilters]=useState({});
+  const [activeColFilter,setActiveColFilter]=useState(null); // which column filter is open
+  const setColFilter=(k,v)=>setColFilters(f=>({...f,[k]:v}));
+  const clearColFilter=k=>setColFilters(f=>{const n={...f};delete n[k];return n;});
+  // Column-level filters for hist table
+  const [histColFilters,setHistColFilters]=useState({});
+  const [activeHistColFilter,setActiveHistColFilter]=useState(null);
+  const setHistColFilter=(k,v)=>setHistColFilters(f=>({...f,[k]:v}));
   const [searchTerm,setSearchTerm]=useState('');
   const [sortField,setSortField]=useState('id');
   const [sortDir,setSortDir]=useState('asc');
@@ -944,9 +953,14 @@ function App(){
   },[visits]);
 
   const histFiltered=useMemo(()=>{
-    if(!histYearFilter)return visits;
-    return visits.filter(v=>getYear(v)===Number(histYearFilter));
-  },[visits,histYearFilter]);
+    let r=visits;
+    if(histYearFilter) r=r.filter(v=>getYear(v)===Number(histYearFilter));
+    if(histAreaFilter) r=r.filter(v=>v.areaEje===histAreaFilter);
+    if(histTipoRFilter) r=r.filter(v=>v.tipoRecinto===histTipoRFilter);
+    if(histRegionFilter) r=r.filter(v=>v.region===histRegionFilter);
+    for(const [k,fv] of Object.entries(histColFilters)){if(fv)r=r.filter(v=>String(v[k]||'').toLowerCase().includes(fv.toLowerCase()));}
+    return r;
+  },[visits,histYearFilter,histAreaFilter,histTipoRFilter,histRegionFilter,histColFilters]);
 
   const histStats=useMemo(()=>{
     const src=histFiltered;
@@ -974,11 +988,13 @@ function App(){
       if(filterMes&&v.mesPlan!==filterMes)return false;
       if(filterYear&&!(v.fechaVisita||'').includes(filterYear))return false;
       if(searchTerm){const s=searchTerm.toLowerCase();return (v.recinto||'').toLowerCase().includes(s)||(v.id||'').toLowerCase().includes(s)||(v.expertoEncargado||'').toLowerCase().includes(s)||(v.region||'').toLowerCase().includes(s);}
+      // Column-level filters
+      for(const [k,fv] of Object.entries(colFilters)){if(fv&&!(String(v[k]||'').toLowerCase().includes(fv.toLowerCase())))return false;}
       return true;
     });
     r.sort((a,b)=>{let va=a[sortField]||'',vb=b[sortField]||'';if(typeof va==='number'&&typeof vb==='number')return sortDir==='asc'?va-vb:vb-va;return sortDir==='asc'?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));});
     return r;
-  },[planVisits,filterArea,filterEstado,filterOrigen,filterTipoR,filterRegion,filterMes,filterYear,searchTerm,sortField,sortDir]);
+  },[planVisits,filterArea,filterEstado,filterOrigen,filterTipoR,filterRegion,filterMes,filterYear,searchTerm,sortField,sortDir,colFilters]);
 
   const toggleSort=f=>{if(sortField===f)setSortDir(d=>d==='asc'?'desc':'asc');else{setSortField(f);setSortDir('asc');}};
   const toggleHistSort=f=>{if(histSortField===f)setHistSortDir(d=>d==='asc'?'desc':'asc');else{setHistSortField(f);setHistSortDir('asc');}};
@@ -1492,10 +1508,24 @@ function App(){
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,overflow:'hidden'}}>
             <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
-                <thead><tr style={{background:C.cream,borderBottom:`2px solid ${C.creamDark}`}}>
+                <thead>
+                  <tr style={{background:C.cream,borderBottom:`1px solid ${C.creamDark}`}}>
                   {[{k:'id',l:'ID'},{k:'areaEje',l:'Área'},{k:'recinto',l:'Recinto'},{k:'origen',l:'Orig.'},{k:'estado',l:'Estado'},{k:'mesPlan',l:'MesP'},{k:'mesReal',l:'MesR'},{k:'diasTotalPlan',l:'DP'},{k:'diasTotalReal',l:'DR'}].map(c=>(
-                    <th key={c.k} onClick={()=>toggleSort(c.k)} style={{padding:'7px 4px',textAlign:'left',fontWeight:700,color:C.gray,fontSize:8,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',position:'sticky',top:0,background:C.cream}}>
-                      {c.l}<ArrowUpDown size={7} color={sortField===c.k?C.accent:C.grayLight} style={{marginLeft:2,verticalAlign:'middle'}}/>
+                    <th key={c.k} style={{padding:'4px 4px 0',textAlign:'left',fontWeight:700,color:colFilters[c.k]?C.accent:C.gray,fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',userSelect:'none',position:'sticky',top:0,background:C.cream}}>
+                      <div style={{display:'flex',alignItems:'center',gap:2,cursor:'pointer'}} onClick={()=>toggleSort(c.k)}>
+                        {c.l}<ArrowUpDown size={7} color={sortField===c.k?C.accent:C.grayLight} style={{marginLeft:1}}/>
+                        {colFilters[c.k]&&<span style={{background:C.accent,color:'#fff',borderRadius:3,fontSize:7,padding:'0 3px'}}>{colFilters[c.k].slice(0,8)}</span>}
+                      </div>
+                      <div style={{position:'relative',marginTop:2}}>
+                        <input
+                          value={colFilters[c.k]||''}
+                          onChange={e=>setColFilter(c.k,e.target.value)}
+                          onClick={e=>e.stopPropagation()}
+                          placeholder="🔍"
+                          style={{width:'100%',padding:'2px 4px',fontSize:8,border:`1px solid ${colFilters[c.k]?C.accent:C.grayLight}`,borderRadius:3,fontFamily:font,color:C.text,background:'#fff',boxSizing:'border-box'}}
+                        />
+                        {colFilters[c.k]&&<button onClick={e=>{e.stopPropagation();clearColFilter(c.k);}} style={{position:'absolute',right:2,top:1,background:'none',border:'none',cursor:'pointer',fontSize:8,color:C.gray,padding:0,lineHeight:1}}>✕</button>}
+                      </div>
                     </th>
                   ))}
                   <th style={{padding:'7px 4px',textAlign:'center',fontWeight:700,color:C.gray,fontSize:8,textTransform:'uppercase',position:'sticky',top:0,background:C.cream}}>Acc.</th>
@@ -1665,10 +1695,24 @@ function App(){
             </div>
             <div style={{overflowX:'auto',maxHeight:400,overflowY:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
-                <thead><tr style={{background:'#D8F5E6'}}>
+                <thead>
+                  <tr style={{background:'#D8F5E6'}}>
                   {[{l:'ID',k:'id'},{l:'Recinto',k:'recinto'},{l:'Tipo Recinto',k:'tipoRecinto'},{l:'Área',k:'areaEje'},{l:'Origen',k:'origen'},{l:'Región',k:'region'},{l:'Tipo Visita',k:'tipoVisita'},{l:'Mes',k:'mesReal'},{l:'Fecha',k:'fechaVisita'},{l:'Días',k:'diasTotalReal'},{l:'Encargado/a',k:'expertoEncargado'},{l:'Link Informe',k:'link'}].map(c=>(
-                    <th key={c.k} onClick={()=>toggleHistSort(c.k)} style={{padding:'6px 5px',textAlign:'left',fontWeight:700,color:'#1A7840',fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',position:'sticky',top:0,background:'#D8F5E6',borderBottom:'1px solid #B8E6CC',cursor:'pointer',userSelect:'none'}}>
-                      {c.l} {histSortField===c.k?(histSortDir==='asc'?'↑':'↓'):<span style={{opacity:0.3}}>↕</span>}
+                    <th key={c.k} style={{padding:'4px 5px 0',textAlign:'left',fontWeight:700,color:histColFilters[c.k]?C.accent:'#1A7840',fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',position:'sticky',top:0,background:'#D8F5E6',userSelect:'none'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:2,cursor:'pointer'}} onClick={()=>toggleHistSort(c.k)}>
+                        {c.l} {histSortField===c.k?(histSortDir==='asc'?'↑':'↓'):<span style={{opacity:0.3}}>↕</span>}
+                        {histColFilters[c.k]&&<span style={{background:C.accent,color:'#fff',borderRadius:3,fontSize:7,padding:'0 3px'}}>{histColFilters[c.k].slice(0,6)}</span>}
+                      </div>
+                      <div style={{position:'relative',marginTop:2}}>
+                        <input
+                          value={histColFilters[c.k]||''}
+                          onChange={e=>setHistColFilter(c.k,e.target.value)}
+                          onClick={e=>e.stopPropagation()}
+                          placeholder="🔍"
+                          style={{width:'100%',padding:'2px 4px',fontSize:8,border:`1px solid ${histColFilters[c.k]?C.accent:'#B8E6CC'}`,borderRadius:3,fontFamily:font,color:C.text,background:'#fff',boxSizing:'border-box'}}
+                        />
+                        {histColFilters[c.k]&&<button onClick={e=>{e.stopPropagation();setHistColFilter(c.k,'');}} style={{position:'absolute',right:2,top:1,background:'none',border:'none',cursor:'pointer',fontSize:8,color:C.gray,padding:0,lineHeight:1}}>✕</button>}
+                      </div>
                     </th>
                   ))}
                 </tr></thead>
