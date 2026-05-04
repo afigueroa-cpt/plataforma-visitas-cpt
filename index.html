@@ -781,6 +781,77 @@ const Airtable = {
   }
 };
 
+
+// ── Componente filtro tipo Excel ─────────────────────────────────────────────
+function ExcelFilter({table,colKey,label,rows,valKey,openColFilter,setOpenColFilter,colFilterSearch,setColFilterSearch,colFilters,histColFilters,toggleColVal,clearColFilter,isColFiltered,font,C}){
+  const isOpen=openColFilter&&openColFilter.table===table&&openColFilter.key===colKey;
+  const filters=table==='plan'?colFilters:histColFilters;
+  const selected=filters[colKey]||new Set();
+  // Get unique values from rows
+  const allVals=[...new Set(rows.map(v=>String(v[valKey||colKey]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const filtered=colFilterSearch?allVals.filter(v=>v.toLowerCase().includes(colFilterSearch.toLowerCase())):allVals;
+  const isFiltered=isColFiltered(table,colKey);
+  return(
+    <th style={{padding:'4px 3px',textAlign:'left',fontWeight:700,
+      color:isFiltered?C.accent:'inherit',
+      fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',
+      position:'sticky',top:0,background:'inherit',userSelect:'none',
+      verticalAlign:'bottom'}}>
+      <div style={{display:'flex',alignItems:'center',gap:2,position:'relative'}}>
+        <button onClick={e=>{e.stopPropagation();
+          if(isOpen){setOpenColFilter(null);setColFilterSearch('');}
+          else{setOpenColFilter({table,key:colKey});setColFilterSearch('');}
+        }} style={{background:'none',border:'none',cursor:'pointer',padding:0,
+          display:'flex',alignItems:'center',gap:2,fontFamily:font,
+          color:isFiltered?C.accent:'inherit',fontSize:8,fontWeight:700,textTransform:'uppercase'}}>
+          {label}
+          <span style={{fontSize:9,opacity:isFiltered?1:0.4}}>{isFiltered?'▼':'⬍'}</span>
+        </button>
+        {isFiltered&&<button onClick={e=>{e.stopPropagation();clearColFilter(table,colKey);}}
+          style={{background:C.accent,border:'none',borderRadius:'50%',width:10,height:10,
+            cursor:'pointer',color:'#fff',fontSize:7,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,padding:0}}>✕</button>}
+        {isOpen&&(
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'absolute',top:'100%',left:0,zIndex:999,
+              background:'#fff',border:`1px solid ${C.grayLight}`,borderRadius:8,
+              boxShadow:'0 8px 24px rgba(0,0,0,0.15)',minWidth:200,maxWidth:260,padding:6}}>
+            <input autoFocus value={colFilterSearch} onChange={e=>setColFilterSearch(e.target.value)}
+              placeholder="Buscar..." style={{width:'100%',padding:'5px 8px',fontSize:11,
+                border:`1px solid ${C.grayLight}`,borderRadius:5,marginBottom:4,
+                fontFamily:font,boxSizing:'border-box',color:'#1A2840'}}/>
+            <div style={{display:'flex',gap:4,marginBottom:4}}>
+              <button onClick={()=>{filtered.forEach(v=>{if(!selected.has(v))toggleColVal(table,colKey,v);});}}
+                style={{flex:1,fontSize:9,padding:'3px 0',border:`1px solid ${C.grayLight}`,borderRadius:4,cursor:'pointer',background:'#fff',fontFamily:font}}>
+                Sel. todo
+              </button>
+              <button onClick={()=>clearColFilter(table,colKey)}
+                style={{flex:1,fontSize:9,padding:'3px 0',border:`1px solid ${C.grayLight}`,borderRadius:4,cursor:'pointer',background:'#fff',fontFamily:font}}>
+                Limpiar
+              </button>
+            </div>
+            <div style={{maxHeight:220,overflowY:'auto'}}>
+              {filtered.length===0&&<div style={{fontSize:10,color:'#9BA3B0',padding:'4px 2px'}}>Sin resultados</div>}
+              {filtered.map(val=>(
+                <label key={val} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 4px',
+                  borderRadius:4,cursor:'pointer',fontSize:11,color:'#1A2840',
+                  background:selected.has(val)?'#EEF4FF':'transparent'}}>
+                  <input type="checkbox" checked={selected.has(val)}
+                    onChange={()=>toggleColVal(table,colKey,val)}
+                    style={{cursor:'pointer',accentColor:'#4172B8'}}/>
+                  <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{val}</span>
+                </label>
+              ))}
+            </div>
+            {selected.size>0&&<div style={{marginTop:4,paddingTop:4,borderTop:`1px solid ${C.grayLight}`,fontSize:9,color:C.gray}}>
+              {selected.size} seleccionado{selected.size!==1?'s':''}
+            </div>}
+          </div>
+        )}
+      </div>
+    </th>
+  );
+}
+
 function App(){
   const [visits,setVisits]=useState(()=>mockData.map(v=>({...v})));
   const [planVisits,setPlanVisits]=useState(()=>planData2025.map(v=>({...v})));
@@ -853,15 +924,37 @@ function App(){
   const [filterRegion,setFilterRegion]=useState('');
   const [filterMes,setFilterMes]=useState('');
   const [filterYear,setFilterYear]=useState('');
-  // Column-level filters for plan table
-  const [colFilters,setColFilters]=useState({});
-  const [activeColFilter,setActiveColFilter]=useState(null); // which column filter is open
-  const setColFilter=(k,v)=>setColFilters(f=>({...f,[k]:v}));
-  const clearColFilter=k=>setColFilters(f=>{const n={...f};delete n[k];return n;});
-  // Column-level filters for hist table
-  const [histColFilters,setHistColFilters]=useState({});
-  const [activeHistColFilter,setActiveHistColFilter]=useState(null);
-  const setHistColFilter=(k,v)=>setHistColFilters(f=>({...f,[k]:v}));
+  // Excel-style column filters — each key maps to Set of selected values (empty = all)
+  const [colFilters,setColFilters]=useState({});       // plan table
+  const [histColFilters,setHistColFilters]=useState({}); // hist table
+  const [openColFilter,setOpenColFilter]=useState(null); // {table:'plan'|'hist', key}
+  const [colFilterSearch,setColFilterSearch]=useState(''); // search within dropdown
+
+  const toggleColVal=(table,key,val)=>{
+    const setter=table==='plan'?setColFilters:setHistColFilters;
+    setter(prev=>{
+      const cur=new Set(prev[key]||[]);
+      if(cur.has(val)){cur.delete(val);}else{cur.add(val);}
+      const next={...prev};
+      if(cur.size===0){delete next[key];}else{next[key]=cur;}
+      return next;
+    });
+  };
+  const clearColFilter=(table,key)=>{
+    const setter=table==='plan'?setColFilters:setHistColFilters;
+    setter(prev=>{const n={...prev};delete n[key];return n;});
+    setOpenColFilter(null);
+  };
+  const isColFiltered=(table,key)=>{
+    const f=table==='plan'?colFilters:histColFilters;
+    return f[key]&&f[key].size>0;
+  };
+  const passesColFilters=(v,filters)=>{
+    for(const [k,vals] of Object.entries(filters)){
+      if(vals&&vals.size>0&&!vals.has(String(v[k]||'')))return false;
+    }
+    return true;
+  };
   const [searchTerm,setSearchTerm]=useState('');
   const [sortField,setSortField]=useState('id');
   const [sortDir,setSortDir]=useState('asc');
@@ -958,7 +1051,7 @@ function App(){
     if(histAreaFilter) r=r.filter(v=>v.areaEje===histAreaFilter);
     if(histTipoRFilter) r=r.filter(v=>v.tipoRecinto===histTipoRFilter);
     if(histRegionFilter) r=r.filter(v=>v.region===histRegionFilter);
-    for(const [k,fv] of Object.entries(histColFilters)){if(fv)r=r.filter(v=>String(v[k]||'').toLowerCase().includes(fv.toLowerCase()));}
+    r=r.filter(v=>passesColFilters(v,histColFilters));
     return r;
   },[visits,histYearFilter,histAreaFilter,histTipoRFilter,histRegionFilter,histColFilters]);
 
@@ -988,8 +1081,8 @@ function App(){
       if(filterMes&&v.mesPlan!==filterMes)return false;
       if(filterYear&&!(v.fechaVisita||'').includes(filterYear))return false;
       if(searchTerm){const s=searchTerm.toLowerCase();return (v.recinto||'').toLowerCase().includes(s)||(v.id||'').toLowerCase().includes(s)||(v.expertoEncargado||'').toLowerCase().includes(s)||(v.region||'').toLowerCase().includes(s);}
-      // Column-level filters
-      for(const [k,fv] of Object.entries(colFilters)){if(fv&&!(String(v[k]||'').toLowerCase().includes(fv.toLowerCase())))return false;}
+      // Excel-style column filters
+      if(!passesColFilters(v,colFilters))return false;
       return true;
     });
     r.sort((a,b)=>{let va=a[sortField]||'',vb=b[sortField]||'';if(typeof va==='number'&&typeof vb==='number')return sortDir==='asc'?va-vb:vb-va;return sortDir==='asc'?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));});
@@ -1511,22 +1604,12 @@ function App(){
                 <thead>
                   <tr style={{background:C.cream,borderBottom:`1px solid ${C.creamDark}`}}>
                   {[{k:'id',l:'ID'},{k:'areaEje',l:'Área'},{k:'recinto',l:'Recinto'},{k:'origen',l:'Orig.'},{k:'estado',l:'Estado'},{k:'mesPlan',l:'MesP'},{k:'mesReal',l:'MesR'},{k:'diasTotalPlan',l:'DP'},{k:'diasTotalReal',l:'DR'}].map(c=>(
-                    <th key={c.k} style={{padding:'4px 4px 0',textAlign:'left',fontWeight:700,color:colFilters[c.k]?C.accent:C.gray,fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',userSelect:'none',position:'sticky',top:0,background:C.cream}}>
-                      <div style={{display:'flex',alignItems:'center',gap:2,cursor:'pointer'}} onClick={()=>toggleSort(c.k)}>
-                        {c.l}<ArrowUpDown size={7} color={sortField===c.k?C.accent:C.grayLight} style={{marginLeft:1}}/>
-                        {colFilters[c.k]&&<span style={{background:C.accent,color:'#fff',borderRadius:3,fontSize:7,padding:'0 3px'}}>{colFilters[c.k].slice(0,8)}</span>}
-                      </div>
-                      <div style={{position:'relative',marginTop:2}}>
-                        <input
-                          value={colFilters[c.k]||''}
-                          onChange={e=>setColFilter(c.k,e.target.value)}
-                          onClick={e=>e.stopPropagation()}
-                          placeholder="🔍"
-                          style={{width:'100%',padding:'2px 4px',fontSize:8,border:`1px solid ${colFilters[c.k]?C.accent:C.grayLight}`,borderRadius:3,fontFamily:font,color:C.text,background:'#fff',boxSizing:'border-box'}}
-                        />
-                        {colFilters[c.k]&&<button onClick={e=>{e.stopPropagation();clearColFilter(c.k);}} style={{position:'absolute',right:2,top:1,background:'none',border:'none',cursor:'pointer',fontSize:8,color:C.gray,padding:0,lineHeight:1}}>✕</button>}
-                      </div>
-                    </th>
+                    <ExcelFilter key={c.k} table="plan" colKey={c.k} label={c.l}
+                      rows={planVisits} openColFilter={openColFilter} setOpenColFilter={setOpenColFilter}
+                      colFilterSearch={colFilterSearch} setColFilterSearch={setColFilterSearch}
+                      colFilters={colFilters} histColFilters={histColFilters}
+                      toggleColVal={toggleColVal} clearColFilter={clearColFilter} isColFiltered={isColFiltered}
+                      font={font} C={C}/>
                   ))}
                   <th style={{padding:'7px 4px',textAlign:'center',fontWeight:700,color:C.gray,fontSize:8,textTransform:'uppercase',position:'sticky',top:0,background:C.cream}}>Acc.</th>
                 </tr></thead>
@@ -1696,24 +1779,14 @@ function App(){
             <div style={{overflowX:'auto',maxHeight:400,overflowY:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
                 <thead>
-                  <tr style={{background:'#D8F5E6'}}>
+                  <tr style={{background:'#D8F5E6',color:'#1A7840'}}>
                   {[{l:'ID',k:'id'},{l:'Recinto',k:'recinto'},{l:'Tipo Recinto',k:'tipoRecinto'},{l:'Área',k:'areaEje'},{l:'Origen',k:'origen'},{l:'Región',k:'region'},{l:'Tipo Visita',k:'tipoVisita'},{l:'Mes',k:'mesReal'},{l:'Fecha',k:'fechaVisita'},{l:'Días',k:'diasTotalReal'},{l:'Encargado/a',k:'expertoEncargado'},{l:'Link Informe',k:'link'}].map(c=>(
-                    <th key={c.k} style={{padding:'4px 5px 0',textAlign:'left',fontWeight:700,color:histColFilters[c.k]?C.accent:'#1A7840',fontSize:8,textTransform:'uppercase',whiteSpace:'nowrap',position:'sticky',top:0,background:'#D8F5E6',userSelect:'none'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:2,cursor:'pointer'}} onClick={()=>toggleHistSort(c.k)}>
-                        {c.l} {histSortField===c.k?(histSortDir==='asc'?'↑':'↓'):<span style={{opacity:0.3}}>↕</span>}
-                        {histColFilters[c.k]&&<span style={{background:C.accent,color:'#fff',borderRadius:3,fontSize:7,padding:'0 3px'}}>{histColFilters[c.k].slice(0,6)}</span>}
-                      </div>
-                      <div style={{position:'relative',marginTop:2}}>
-                        <input
-                          value={histColFilters[c.k]||''}
-                          onChange={e=>setHistColFilter(c.k,e.target.value)}
-                          onClick={e=>e.stopPropagation()}
-                          placeholder="🔍"
-                          style={{width:'100%',padding:'2px 4px',fontSize:8,border:`1px solid ${histColFilters[c.k]?C.accent:'#B8E6CC'}`,borderRadius:3,fontFamily:font,color:C.text,background:'#fff',boxSizing:'border-box'}}
-                        />
-                        {histColFilters[c.k]&&<button onClick={e=>{e.stopPropagation();setHistColFilter(c.k,'');}} style={{position:'absolute',right:2,top:1,background:'none',border:'none',cursor:'pointer',fontSize:8,color:C.gray,padding:0,lineHeight:1}}>✕</button>}
-                      </div>
-                    </th>
+                    <ExcelFilter key={c.k} table="hist" colKey={c.k} label={c.l}
+                      rows={visits} openColFilter={openColFilter} setOpenColFilter={setOpenColFilter}
+                      colFilterSearch={colFilterSearch} setColFilterSearch={setColFilterSearch}
+                      colFilters={colFilters} histColFilters={histColFilters}
+                      toggleColVal={toggleColVal} clearColFilter={clearColFilter} isColFiltered={isColFiltered}
+                      font={font} C={C}/>
                   ))}
                 </tr></thead>
                 <tbody>{[...histFiltered].sort((a,b)=>{
