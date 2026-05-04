@@ -82,8 +82,8 @@ const CAT={
   estados:['Planificada','Programada','Realizada','Suspendida','Reprogramada','Modificada'],
   origenes:['Planificada','No Planificada'],
   meses:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
-  encargados:['Alejandra Díaz','Carlos Baeza','Daniel Soto','Francisco Maffioletti','Javiera Canessa','Karen Espinola','Luis Vial','Paula Valenzuela','Sebastián Cabezas','Yamileth Granizo'],
-  analistas:['Cecilia Jaramillo','Valentina Rojas','Andrés Muñoz','María Paz Contreras','Rodrigo Henríquez','Camila Reyes'],
+  encargados:['Daniel Soto','Luis Vial','Francisco Maffioletti','Paula Valenzuela','Yamileth Granizo','Luis Vial/ Daniel Soto','Luis Vial/ Yamileth Granizo','Javiera Canessa','Paula Valenzuela, Yami, Karen','Karen Espinola','Yamileth Granizo/Paula Valenzuela','Paula Valenzuela / Karen Espínola','Paula / Daniel'],
+  analistas:['Estrella San Martín Toloza','Staffi Hanna Schramm López / Gonzalo','Steffi Hanna Schramm López','Nathalie Coliñir Pavéz','María Rosario Beltran','Andrea Cerda Pereira','María Cecilia Jaramillo','Marcela García','Alfredo Fernández','Daniel Wasserman','Staffi Hanna Schramm López/ Marcela García','Juan Carlos Cea Madrid','Loreto Paulina Adrian Serrano','Gonzalo Horstmeier','Rosario Beltran','Loreto Paulina Adrian Serrano / Gonzalo Horstmeier'],
   tiposRecinto:['Centros de justicia juvenil','Centros de justicia juvenil - personas migrantes','Dispositivos sociosanitarios','Escuelas de formación del personal','Hospitales y clínicas psiquiátricas','Recinto Penitenciario','Recinto Penitenciario - personas migrantes','Recinto Penitenciario - pueblos originarios','Residencias de protección de niñas, niños y adolescentes','Residencias para personas mayores','Recintos transitorios que albergan a personas migrantes','Sección Materno Infantil en recinto penitenciario','Secciones materno infantil en recintos penitenciarios*','Unidades Forenses','Unidades Hospitalarias de Cuidados Intensivos de Psiquiatría (UHCIP)','Unidades policiales','Unidades policiales - Carabineros de Chile','Unidades policiales - PDI'],
 };
 
@@ -738,7 +738,7 @@ const Airtable = {
       const cleanFields = {};
       for (const [k,v] of Object.entries(fields)) {
         if (k === '_recordId') continue;
-        if (v !== undefined && v !== null) cleanFields[k] = v;
+        if (v !== undefined && v !== null && v !== '') cleanFields[k] = v;
       }
       const r = await fetch(`${AIRTABLE_CONFIG.proxyUrl}/update?table=${tableKey}`, {
         method: 'PATCH',
@@ -1552,6 +1552,7 @@ function App(){
                               {/* EQUIPO */}
                               {editForm.estado!=='Reprogramada'&&<>
                                 <div><label style={labelStyle}>Experto/a Encargado/a</label><select value={editForm.expertoEncargado} onChange={e=>setEditForm({...editForm,expertoEncargado:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.encargados.map(e=><option key={e}>{e}</option>)}</select></div>
+                                <div><label style={labelStyle}>Analista Encargado/a</label><select value={editForm.analistaEncargado} onChange={e=>setEditForm({...editForm,analistaEncargado:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.analistas.map(a=><option key={a}>{a}</option>)}</select></div>
                                 <div style={{gridColumn:'span 2'}}><label style={labelStyle}>Equipo que participó</label><input value={editForm.equipoReal} onChange={e=>setEditForm({...editForm,equipoReal:e.target.value})} placeholder="Nombres separados por coma" style={inputStyle}/></div>
                               </>}
                               {/* JUSTIFICACIÓN */}
