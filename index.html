@@ -921,6 +921,11 @@ function App(){
   const [filterEstado,setFilterEstado]=useState('');
   const [filterOrigen,setFilterOrigen]=useState('');
   const [filterTipoR,setFilterTipoR]=useState('');
+  // Visualization filters for plan tab (affect charts + table)
+  const [vizArea,setVizArea]=useState('');
+  const [vizRegion,setVizRegion]=useState('');
+  const [vizTipoR,setVizTipoR]=useState('');
+  const [vizMes,setVizMes]=useState('');
   const [filterRegion,setFilterRegion]=useState('');
   const [filterMes,setFilterMes]=useState('');
   const [filterYear,setFilterYear]=useState('');
@@ -1030,13 +1035,19 @@ function App(){
   }),[planVisits]);
 
   const segResumen=useMemo(()=>{
-    const tiposRecinto=[...new Set(realizadas.map(v=>v.tipoRecinto).filter(Boolean))].sort();
-    const hasSinClasificar=realizadas.some(v=>!v.tipoRecinto||!v.tipoRecinto.trim());
-    const byTR=[...tiposRecinto.map(t=>({name:t,total:realizadas.filter(v=>v.tipoRecinto===t).length,visits:realizadas.filter(v=>v.tipoRecinto===t)})).filter(x=>x.total>0),...(hasSinClasificar?[{name:'Sin clasificar',total:realizadas.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim()).length,visits:realizadas.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim())}].filter(x=>x.total>0):[])].sort((a,b)=>b.total-a.total);
-    const byMes=CAT.meses.map(m=>({name:m,short:m.slice(0,3),total:realizadas.filter(v=>v.mesReal===m).length,visits:realizadas.filter(v=>v.mesReal===m)}));
-    const byReg=REGIONES_ORDEN.map(r=>({name:r,total:realizadas.filter(v=>v.region===r).length,visits:realizadas.filter(v=>v.region===r)})).filter(x=>x.total>0);
-    return {byTR,byMes,byReg};
-  },[realizadas]);
+    // Apply visualization filters
+    let src=realizadas;
+    if(vizArea) src=src.filter(v=>v.areaEje===vizArea);
+    if(vizRegion) src=src.filter(v=>v.region===vizRegion);
+    if(vizTipoR) src=src.filter(v=>v.tipoRecinto===vizTipoR);
+    if(vizMes) src=src.filter(v=>v.mesReal===vizMes||v.mesPlan===vizMes);
+    const tiposRecinto=[...new Set(src.map(v=>v.tipoRecinto).filter(Boolean))].sort();
+    const hasSinClasificar=src.some(v=>!v.tipoRecinto||!v.tipoRecinto.trim());
+    const byTR=[...tiposRecinto.map(t=>({name:t,total:src.filter(v=>v.tipoRecinto===t).length,visits:src.filter(v=>v.tipoRecinto===t)})).filter(x=>x.total>0),...(hasSinClasificar?[{name:'Sin clasificar',total:src.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim()).length,visits:src.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim())}].filter(x=>x.total>0):[])].sort((a,b)=>b.total-a.total);
+    const byMes=CAT.meses.map(m=>({name:m,short:m.slice(0,3),total:src.filter(v=>v.mesReal===m).length,visits:src.filter(v=>v.mesReal===m)}));
+    const byReg=REGIONES_ORDEN.map(r=>({name:r,total:src.filter(v=>v.region===r).length,visits:src.filter(v=>v.region===r)})).filter(x=>x.total>0);
+    return {byTR,byMes,byReg,total:src.length};
+  },[realizadas,vizArea,vizRegion,vizTipoR,vizMes]);
 
   /* ═══ Registro Histórico uses visits (from Matriz Consolidada) ═══ */
   const histYears=useMemo(()=>{
@@ -1561,7 +1572,29 @@ function App(){
 
           {activeKpi&&kpiBreakdown[activeKpi]&&<BreakdownPanel data={kpiBreakdown[activeKpi]} color={activeKpi==='planProgramadas'?C.navy:activeKpi==='planRealizadas'||activeKpi==='fidelidad'?'#28A05A':activeKpi==='variacion'?C.accent:activeKpi==='noPlan'?'#7C4AC8':'#DC3545'} label={activeKpi==='planProgramadas'?'Visitas Programadas':activeKpi==='planRealizadas'?'Prog. Realizadas':activeKpi==='fidelidad'?'Fidelidad':activeKpi==='variacion'?'Variación':activeKpi==='noPlan'?'No Programadas':'Suspensiones'}/>}
 
-          <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6,marginTop:4}}><Activity size={11} style={{verticalAlign:'middle',marginRight:4}}/>Resumen logrado a la fecha</div>
+          <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6,marginTop:4,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            <span><Activity size={11} style={{verticalAlign:'middle',marginRight:4}}/>Resumen logrado a la fecha</span>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap',marginLeft:'auto'}}>
+              <select value={vizArea} onChange={e=>{setVizArea(e.target.value);setHistDrill(null);}} style={{...inputStyle,width:'auto',minWidth:110,fontSize:10,padding:'3px 6px'}}>
+                <option value="">Todas las áreas</option>
+                {CAT.areas.map(a=><option key={a}>{a}</option>)}
+              </select>
+              <select value={vizRegion} onChange={e=>{setVizRegion(e.target.value);setHistDrill(null);}} style={{...inputStyle,width:'auto',minWidth:110,fontSize:10,padding:'3px 6px'}}>
+                <option value="">Todas las regiones</option>
+                {REGIONES_ORDEN.filter(r=>realizadas.some(v=>v.region===r)).map(r=><option key={r}>{r}</option>)}
+              </select>
+              <select value={vizTipoR} onChange={e=>{setVizTipoR(e.target.value);setHistDrill(null);}} style={{...inputStyle,width:'auto',minWidth:120,fontSize:10,padding:'3px 6px'}}>
+                <option value="">Todos los tipos</option>
+                {[...new Set(realizadas.map(v=>v.tipoRecinto).filter(Boolean))].sort().map(t=><option key={t}>{t}</option>)}
+              </select>
+              <select value={vizMes} onChange={e=>{setVizMes(e.target.value);setHistDrill(null);}} style={{...inputStyle,width:'auto',minWidth:90,fontSize:10,padding:'3px 6px'}}>
+                <option value="">Todos los meses</option>
+                {CAT.meses.map(m=><option key={m}>{m}</option>)}
+              </select>
+              {(vizArea||vizRegion||vizTipoR||vizMes)&&<button onClick={()=>{setVizArea('');setVizRegion('');setVizTipoR('');setVizMes('');setHistDrill(null);}} style={{padding:'3px 8px',border:`1px solid ${C.grayLight}`,borderRadius:5,fontSize:9,fontWeight:700,cursor:'pointer',background:'#fff',color:C.gray,fontFamily:font}}>✕ Limpiar</button>}
+              {(vizArea||vizRegion||vizTipoR||vizMes)&&<span style={{fontSize:9,color:C.gray,alignSelf:'center'}}>{segResumen.total} visitas</span>}
+            </div>
+          </div>
 
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px',marginBottom:10}}>
             <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:8}}><CircleDot size={10} style={{verticalAlign:'middle',marginRight:4}}/>Visitas realizadas por mes</div>
