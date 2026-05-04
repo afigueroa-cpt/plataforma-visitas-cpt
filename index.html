@@ -84,6 +84,7 @@ const CAT={
   meses:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   encargados:['Alejandra Díaz','Carlos Baeza','Daniel Soto','Francisco Maffioletti','Javiera Canessa','Karen Espinola','Luis Vial','Paula Valenzuela','Sebastián Cabezas','Yamileth Granizo'],
   analistas:['Cecilia Jaramillo','Valentina Rojas','Andrés Muñoz','María Paz Contreras','Rodrigo Henríquez','Camila Reyes'],
+  tiposRecinto:['Centros de justicia juvenil','Centros de justicia juvenil - personas migrantes','Dispositivos sociosanitarios','Escuelas de formación del personal','Hospitales y clínicas psiquiátricas','Recinto Penitenciario','Recinto Penitenciario - personas migrantes','Recinto Penitenciario - pueblos originarios','Residencias de protección de niñas, niños y adolescentes','Residencias para personas mayores','Recintos transitorios que albergan a personas migrantes','Sección Materno Infantil en recinto penitenciario','Secciones materno infantil en recintos penitenciarios*','Unidades Forenses','Unidades Hospitalarias de Cuidados Intensivos de Psiquiatría (UHCIP)','Unidades policiales','Unidades policiales - Carabineros de Chile','Unidades policiales - PDI'],
 };
 
 const MESES_IDX={Enero:0,Febrero:1,Marzo:2,Abril:3,Mayo:4,Junio:5,Julio:6,Agosto:7,Septiembre:8,Octubre:9,Noviembre:10,Diciembre:11};
@@ -1001,6 +1002,8 @@ function App(){
     if((editForm.estado==='Suspendida'||editForm.estado==='Reprogramada')&&!(editForm.justificacionDesviacion||'').trim()){showToast('Ingrese justificación','err');return;}
     setSyncingAT(true);
     const isReprg=editForm.estado==='Reprogramada';
+    // Excluir 'nuevaFecha' — no existe como columna en Airtable
+    const {nuevaFecha:_nf,...editFormClean}=editForm;
     const fieldsToSave=isReprg?{
       estado:'Reprogramada',
       fechaVisita:editForm.nuevaFecha,
@@ -1009,7 +1012,7 @@ function App(){
       areaEje:editForm.areaEje,region:editForm.region,recinto:editForm.recinto,
       tipoVisita:editForm.tipoVisita,tipoRecinto:editForm.tipoRecinto,
       expertoEncargado:editForm.expertoEncargado,
-    }:{...editForm};
+    }:{...editFormClean};
     const updated={...o,...fieldsToSave};
     if(o._recordId){
       const res=await Airtable.update('plan', o._recordId, fieldsToSave);
@@ -1363,7 +1366,7 @@ function App(){
                     <div><label style={labelS}>Área/Eje</label><select value={confirmForm.areaEje} onChange={e=>setConfirmForm(f=>({...f,areaEje:e.target.value}))} style={inputS}><option value="">—</option>{CAT.areas.map(a=><option key={a}>{a}</option>)}</select></div>
                     <div><label style={labelS}>Región</label><select value={confirmForm.region} onChange={e=>setConfirmForm(f=>({...f,region:e.target.value}))} style={inputS}><option value="">—</option>{CAT.regiones.map(r=><option key={r}>{r}</option>)}</select></div>
                     <div style={{gridColumn:'span 2'}}><label style={labelS}>Recinto *</label><input value={confirmForm.recinto} onChange={e=>setConfirmForm(f=>({...f,recinto:e.target.value}))} style={inputS}/></div>
-                    <div><label style={labelS}>Tipo Recinto</label><input value={confirmForm.tipoRecinto} onChange={e=>setConfirmForm(f=>({...f,tipoRecinto:e.target.value}))} style={inputS}/></div>
+                    <div><label style={labelS}>Tipo Recinto</label><select value={confirmForm.tipoRecinto} onChange={e=>setConfirmForm(f=>({...f,tipoRecinto:e.target.value}))} style={inputS}><option value="">—</option>{CAT.tiposRecinto.map(t=><option key={t}>{t}</option>)}</select></div>
                     <div><label style={labelS}>Tipo Visita</label><select value={confirmForm.tipoVisita} onChange={e=>setConfirmForm(f=>({...f,tipoVisita:e.target.value}))} style={inputS}><option value="">—</option>{CAT.tiposVisita.map(t=><option key={t}>{t}</option>)}</select></div>
                     {!isSusp&&<>
                       <div><label style={labelS}>{isReprg?'Nueva fecha *':'Fecha real *'}</label>
@@ -1502,7 +1505,7 @@ function App(){
                               <div><label style={labelStyle}>Región</label><select value={editForm.region} onChange={e=>setEditForm({...editForm,region:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.regiones.map(r=><option key={r}>{r}</option>)}</select></div>
                               <div style={{gridColumn:'span 2'}}><label style={labelStyle}>Recinto *</label><input value={editForm.recinto} onChange={e=>setEditForm({...editForm,recinto:e.target.value})} style={inputStyle}/></div>
                               <div><label style={labelStyle}>Tipo Visita</label><select value={editForm.tipoVisita} onChange={e=>setEditForm({...editForm,tipoVisita:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.tiposVisita.map(t=><option key={t}>{t}</option>)}</select></div>
-                              <div><label style={labelStyle}>Tipo Recinto</label><input value={editForm.tipoRecinto} onChange={e=>setEditForm({...editForm,tipoRecinto:e.target.value})} style={inputStyle}/></div>
+                              <div><label style={labelStyle}>Tipo Recinto</label><select value={editForm.tipoRecinto} onChange={e=>setEditForm({...editForm,tipoRecinto:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.tiposRecinto.map(t=><option key={t}>{t}</option>)}</select></div>
                               {/* EJECUCIÓN */}
                               {editForm.estado!=='Suspendida'&&<>
                                 <div><label style={labelStyle}>{editForm.estado==='Reprogramada'?'Nueva fecha planificada':'Fecha real *'}</label>
