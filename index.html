@@ -1004,15 +1004,35 @@ function App(){
     const isReprg=editForm.estado==='Reprogramada';
     // Excluir 'nuevaFecha' — no existe como columna en Airtable
     const {nuevaFecha:_nf,...editFormClean}=editForm;
+    // Solo campos que existen en tblPlan de Airtable
     const fieldsToSave=isReprg?{
       estado:'Reprogramada',
       fechaVisita:editForm.nuevaFecha,
-      fechaPlanOriginal:o.fechaPlanOriginal||o.fechaVisita||o.mesPlan||'',
       justificacionDesviacion:(o.justificacionDesviacion?o.justificacionDesviacion+' | ':'')+'Reprogramada: '+editForm.justificacionDesviacion,
-      areaEje:editForm.areaEje,region:editForm.region,recinto:editForm.recinto,
-      tipoVisita:editForm.tipoVisita,tipoRecinto:editForm.tipoRecinto,
+      areaEje:editForm.areaEje,
+      region:editForm.region,
+      recinto:editForm.recinto,
+      tipoVisita:editForm.tipoVisita,
+      tipoRecinto:editForm.tipoRecinto,
       expertoEncargado:editForm.expertoEncargado,
-    }:{...editFormClean};
+    }:{
+      estado:editFormClean.estado,
+      fechaVisita:editFormClean.fechaVisita||'',
+      mesReal:editFormClean.mesReal||'',
+      diasTotalReal:Number(editFormClean.diasTotalReal)||0,
+      equipoReal:editFormClean.equipoReal||'',
+      totalParticipantesReal:Number(editFormClean.totalParticipantesReal)||0,
+      expertoEncargado:editFormClean.expertoEncargado||'',
+      analistaEncargado:editFormClean.analistaEncargado||'',
+      areaEje:editFormClean.areaEje||'',
+      region:editFormClean.region||'',
+      recinto:editFormClean.recinto||'',
+      tipoVisita:editFormClean.tipoVisita||'',
+      tipoRecinto:editFormClean.tipoRecinto||'',
+      justificacionDesviacion:editFormClean.justificacionDesviacion||'',
+      observaciones:editFormClean.observaciones||'',
+      tema:editFormClean.tema||'',
+    };
     const updated={...o,...fieldsToSave};
     if(o._recordId){
       const res=await Airtable.update('plan', o._recordId, fieldsToSave);
@@ -1314,17 +1334,23 @@ function App(){
               if((isSusp||isReprg)&&!confirmForm.justificacion.trim()){showToast('Ingrese justificación','err');return;}
               const fechaOriginal=v.fechaPlanOriginal||v.fechaVisita||'';
               const fields=isReprg?{
-                estado:'Reprogramada',fechaVisita:confirmForm.nuevaFecha,fechaPlanOriginal:fechaOriginal,
+                estado:'Reprogramada',
+                fechaVisita:confirmForm.nuevaFecha,
                 justificacionDesviacion:(v.justificacionDesviacion?v.justificacionDesviacion+' | ':'')+'Reprogramada: '+confirmForm.justificacion,
                 areaEje:confirmForm.areaEje,region:confirmForm.region,recinto:confirmForm.recinto,
-                tipoVisita:confirmForm.tipoVisita,tipoRecinto:confirmForm.tipoRecinto,expertoEncargado:confirmForm.expertoEncargado,
+                tipoVisita:confirmForm.tipoVisita,tipoRecinto:confirmForm.tipoRecinto,
+                expertoEncargado:confirmForm.expertoEncargado,
               }:{
-                estado:confirmForm.resultado,fechaVisita:isSusp?v.fechaVisita:confirmForm.fechaVisita,
-                fechaPlanOriginal:fechaOriginal,mesReal:confirmForm.mesReal,
-                diasTotalReal:Number(confirmForm.diasTotalReal)||0,expertoEncargado:confirmForm.expertoEncargado,
-                equipoReal:confirmForm.equipoReal,totalParticipantesReal:Number(confirmForm.totalParticipantesReal)||0,
-                region:confirmForm.region,recinto:confirmForm.recinto,tipoRecinto:confirmForm.tipoRecinto,
-                tipoVisita:confirmForm.tipoVisita,areaEje:confirmForm.areaEje,
+                estado:confirmForm.resultado,
+                fechaVisita:isSusp?v.fechaVisita:confirmForm.fechaVisita,
+                mesReal:confirmForm.mesReal,
+                diasTotalReal:Number(confirmForm.diasTotalReal)||0,
+                expertoEncargado:confirmForm.expertoEncargado,
+                equipoReal:confirmForm.equipoReal,
+                totalParticipantesReal:Number(confirmForm.totalParticipantesReal)||0,
+                region:confirmForm.region,recinto:confirmForm.recinto,
+                tipoRecinto:confirmForm.tipoRecinto,tipoVisita:confirmForm.tipoVisita,
+                areaEje:confirmForm.areaEje,
                 justificacionDesviacion:confirmForm.justificacion||v.justificacionDesviacion||'',
               };
               setSyncingAT(true);
