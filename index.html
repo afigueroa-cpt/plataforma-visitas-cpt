@@ -666,7 +666,7 @@ function VisitDetailPanel({v, onClose, accentColor}) {
   );
 }
 
-function VisitTable({rows,title,showClose,onClose}){
+function VisitTable({rows,title,showClose,onClose,canEdit,onInforme}){
   const [expanded, setExpanded] = useState(null);
   if(!rows||rows.length===0)return null;
   return (
@@ -703,11 +703,11 @@ function VisitTable({rows,title,showClose,onClose}){
                   <td style={{padding:'7px 6px'}} onClick={e=>e.stopPropagation()}>
                 <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
                   {v.link&&<a href={v.link} target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontSize:10,fontWeight:600,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:2,padding:'2px 6px',borderRadius:4,border:'1px solid rgba(37,99,235,0.25)'}}><ExternalLink size={9}/>Ver</a>}
-                  {editUnlocked&&<button onClick={()=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||'',});}}
+                  {canEdit&&onInforme&&<button onClick={()=>onInforme(v)}
                     style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,border:'1px solid #28A05A',background:v.link?'#D8F5E6':'#fff',color:v.link?'#1A7840':'#5A6A80',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:2}}>
                     📄{v.link?'Editar':'+ Informe'}
                   </button>}
-                  {!v.link&&!editUnlocked&&<span style={{color:C.gray,fontSize:10}}>No publicado</span>}
+                  {!v.link&&(!canEdit||!onInforme)&&<span style={{color:C.gray,fontSize:10}}>No publicado</span>}
                 </div>
               </td>
                 </tr>
@@ -1126,7 +1126,7 @@ function App(){
         let dv=[],dt='';
         if(drillRecinto.startsWith('mes:')){const m=drillRecinto.slice(4);dv=data.byMes.find(x=>x.name===m)?.visits||[];dt=`Visitas en ${m}`;}
         else{dv=data.byRecinto.find(x=>x.name===drillRecinto)?.visits||[];dt=drillRecinto;}
-        return <VisitTable rows={dv} title={dt} showClose onClose={()=>setDrillRecinto(null)}/>;
+        return <VisitTable rows={dv} title={dt} showClose onClose={()=>setDrillRecinto(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>;
       })()}
     </div>
   );
@@ -1434,19 +1434,19 @@ function App(){
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px',marginBottom:10}}>
             <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:8}}><CircleDot size={10} style={{verticalAlign:'middle',marginRight:4}}/>Visitas realizadas por mes</div>
             <ResponsiveContainer width="100%" height={140}><BarChart data={segResumen.byMes} margin={{top:5,right:10,left:0,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke={C.creamDark}/><XAxis dataKey="short" tick={{fontSize:9,fill:C.gray}}/><YAxis tick={{fontSize:9,fill:C.gray}} allowDecimals={false}/><Tooltip contentStyle={{fontSize:11,fontFamily:font,borderRadius:8}}/><Bar dataKey="total" fill={C.accent} radius={[3,3,0,0]} cursor="pointer" onClick={data=>{if(data&&data.total>0){const m=segResumen.byMes.find(x=>x.short===data.short);if(m)setHistDrill({type:'mes-seg',value:m.name,visits:m.visits});}}}/></BarChart></ResponsiveContainer>
-            {histDrill?.type==='mes-seg'&&<VisitTable rows={histDrill.visits} title={`Visitas en ${histDrill.value}`} showClose onClose={()=>setHistDrill(null)}/>}
+            {histDrill?.type==='mes-seg'&&<VisitTable rows={histDrill.visits} title={`Visitas en ${histDrill.value}`} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}
           </div>
 
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:6}}><Building2 size={10} style={{verticalAlign:'middle',marginRight:4}}/>Tipos de Recinto</div>
               {segResumen.byTR.map((r,i)=>{const mx=Math.max(...segResumen.byTR.map(x=>x.total),1);const isA=histDrill?.type==='tr-seg'&&histDrill.value===r.name;
-                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.accent} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'tr-seg',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)}/>}</Fragment>;})}
+                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.accent} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'tr-seg',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}</Fragment>;})}
             </div>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:6}}><Globe size={10} style={{verticalAlign:'middle',marginRight:4}}/>Por Región</div>
               {segResumen.byReg.map((r,i)=>{const mx=Math.max(...segResumen.byReg.map(x=>x.total),1);const isA=histDrill?.type==='reg-seg'&&histDrill.value===r.name;
-                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.blueDark} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'reg-seg',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)}/>}</Fragment>;})}
+                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.blueDark} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'reg-seg',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}</Fragment>;})}
             </div>
           </div>
 
@@ -1588,7 +1588,7 @@ function App(){
               </div>;
             })}
           </div>
-          {histDrill?.type==='stat'&&<VisitTable rows={histDrill.visits} title={histDrill.value==='all'?'Todas las visitas':histDrill.value==='prog'?'Visitas Programadas':histDrill.value==='noprog'?'No Programadas':'Con Informe Publicado'} showClose onClose={()=>setHistDrill(null)}/>}
+          {histDrill?.type==='stat'&&<VisitTable rows={histDrill.visits} title={histDrill.value==='all'?'Todas las visitas':histDrill.value==='prog'?'Visitas Programadas':histDrill.value==='noprog'?'No Programadas':'Con Informe Publicado'} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}
 
           {/* Visitas por Año (primary chart) */}
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px',marginBottom:10,marginTop:12}}>
@@ -1600,19 +1600,19 @@ function App(){
           {histYearFilter&&<div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px',marginBottom:10}}>
             <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:8}}>Visitas por Mes en {histYearFilter} · clic en barra para detalle</div>
             <ResponsiveContainer width="100%" height={140}><BarChart data={histStats.byMes} margin={{top:5,right:10,left:0,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke={C.creamDark}/><XAxis dataKey="short" tick={{fontSize:9,fill:C.gray}}/><YAxis tick={{fontSize:9,fill:C.gray}} allowDecimals={false}/><Tooltip contentStyle={{fontSize:11,fontFamily:font,borderRadius:8}}/><Bar dataKey="total" fill={C.blueDark} radius={[3,3,0,0]} cursor="pointer" onClick={data=>{if(data&&data.total>0){const m=histStats.byMes.find(x=>x.short===data.short);if(m)setHistDrill({type:'h-mes',value:m.name,visits:m.visits});}}}/></BarChart></ResponsiveContainer>
-            {histDrill?.type==='h-mes'&&<VisitTable rows={histDrill.visits} title={`Visitas en ${histDrill.value}`} showClose onClose={()=>setHistDrill(null)}/>}
+            {histDrill?.type==='h-mes'&&<VisitTable rows={histDrill.visits} title={`Visitas en ${histDrill.value}`} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}
           </div>}
 
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:6}}><Building2 size={10} style={{verticalAlign:'middle',marginRight:4}}/>Por Tipo de Recinto{histYearFilter?` (${histYearFilter})`:''}</div>
               {histStats.byTR.map((r,i)=>{const mx=Math.max(...histStats.byTR.map(x=>x.total),1);const isA=histDrill?.type==='h-tr'&&histDrill.value===r.name;
-                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.accent} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-tr',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)}/>}</Fragment>;})}
+                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.accent} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-tr',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}</Fragment>;})}
             </div>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:6}}><Layers size={10} style={{verticalAlign:'middle',marginRight:4}}/>Por Área/Eje{histYearFilter?` (${histYearFilter})`:''}</div>
               {histStats.byArea.map((a,i)=>{const mx=Math.max(...histStats.byArea.map(x=>x.total),1);const isA=histDrill?.type==='h-area'&&histDrill.value===a.name;
-                return <Fragment key={i}><ClickableBarRow item={a} maxVal={mx} color={C.blueDark} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-area',value:a.name,visits:a.visits})}/>{isA&&<VisitTable rows={a.visits} title={a.name} showClose onClose={()=>setHistDrill(null)}/>}</Fragment>;})}
+                return <Fragment key={i}><ClickableBarRow item={a} maxVal={mx} color={C.blueDark} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-area',value:a.name,visits:a.visits})}/>{isA&&<VisitTable rows={a.visits} title={a.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}/>}</Fragment>;})}
             </div>
           </div>
 
