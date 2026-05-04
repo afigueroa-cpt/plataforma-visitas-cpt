@@ -79,11 +79,19 @@ const CAT={
   areas:['Penitenciaria','Salud Mental','Niñez y Adolescencia','Personas Mayores','Función Policial','Interculturalidad y Grupos de Especial Protección','Salud Pública'],
   regiones:['Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo','Valparaíso','Metropolitana',"O'Higgins",'Maule','Ñuble','Bío Bío','Araucanía','Los Ríos','Los Lagos','Aysén','Magallanes'],
   tiposVisita:['Exhaustiva','Temática','Seguimiento','Reactiva','Ad hoc','Exploratoria'],
-  estados:['Programada','Realizada','Suspendida','Modificada'],
+  estados:['Planificada','Programada','Realizada','Suspendida','Reprogramada','Modificada'],
   origenes:['Planificada','No Planificada'],
   meses:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   encargados:['Alejandra Díaz','Carlos Baeza','Daniel Soto','Francisco Maffioletti','Javiera Canessa','Karen Espinola','Luis Vial','Paula Valenzuela','Sebastián Cabezas','Yamileth Granizo'],
   analistas:['Cecilia Jaramillo','Valentina Rojas','Andrés Muñoz','María Paz Contreras','Rodrigo Henríquez','Camila Reyes'],
+};
+
+const MESES_IDX={Enero:0,Febrero:1,Marzo:2,Abril:3,Mayo:4,Junio:5,Julio:6,Agosto:7,Septiembre:8,Octubre:9,Noviembre:10,Diciembre:11};
+const isPendienteConfirmacion=(v,hoy)=>{
+  if(v.estado!=='Planificada'&&v.estado!=='Programada'&&v.estado!=='Reprogramada')return false;
+  if(v.fechaVisita){const d=parseDateStr(v.fechaVisita);return d&&d<hoy;}
+  if(v.mesPlan){const idx=MESES_IDX[v.mesPlan];if(idx===undefined)return false;return idx<hoy.getMonth()&&hoy.getFullYear()>=2025;}
+  return false;
 };
 
 /* ═══ REGISTRO HISTÓRICO — Matriz Consolidada 353 visitas 2021-2026 ═══ */
@@ -689,7 +697,16 @@ function VisitTable({rows,title,showClose,onClose}){
                   <td style={{padding:'7px 6px'}}>{sc(v.fechaVisita)}</td>
                   <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700}}>{scNum(v.diasTotalReal||v.diasTotalPlan)}</td>
                   <td style={{padding:'7px 6px'}}>{sc(v.expertoEncargado)}</td>
-                  <td style={{padding:'7px 6px'}}>{v.link?<a href={v.link} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:'#2563eb',fontSize:10,fontWeight:600,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:3,padding:'2px 6px',borderRadius:4,border:'1px solid rgba(37,99,235,0.25)'}}><ExternalLink size={9}/>Informe</a>:<span style={{color:C.gray,fontSize:10}}>No publicado</span>}</td>
+                  <td style={{padding:'7px 6px'}} onClick={e=>e.stopPropagation()}>
+                <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
+                  {v.link&&<a href={v.link} target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontSize:10,fontWeight:600,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:2,padding:'2px 6px',borderRadius:4,border:'1px solid rgba(37,99,235,0.25)'}}><ExternalLink size={9}/>Ver</a>}
+                  {editUnlocked&&<button onClick={()=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||'',});}}
+                    style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,border:'1px solid #28A05A',background:v.link?'#D8F5E6':'#fff',color:v.link?'#1A7840':'#5A6A80',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:2}}>
+                    📄{v.link?'Editar':'+ Informe'}
+                  </button>}
+                  {!v.link&&!editUnlocked&&<span style={{color:C.gray,fontSize:10}}>No publicado</span>}
+                </div>
+              </td>
                 </tr>
                 {isXv&&<VisitDetailPanel v={v} onClose={()=>setExpanded(null)} accentColor={C.accent}/>}
               </Fragment>
@@ -792,6 +809,30 @@ function App(){
   const [activeTab,setActiveTab]=useState('planificacion');
   const [editingId,setEditingId]=useState(null);
   const [editForm,setEditForm]=useState({});
+  const HOY=new Date();
+  const [showPorConfirmar,setShowPorConfirmar]=useState(false);
+  const [confirmId,setConfirmId]=useState(null);
+  const [confirmForm,setConfirmForm]=useState({});
+  const [informeId,setInformeId]=useState(null);   // id de visita con panel de informe abierto
+  const [informeForm,setInformeForm]=useState({estadoInforme:'Publicado',fechaPublicacion:'',link:''});
+
+  const saveInforme=async(vid,recordId)=>{
+    if(!informeForm.link){showToast('Ingrese el link del informe','err');return;}
+    if(informeForm.link&&!informeForm.link.startsWith('http')){showToast('El link debe empezar con https://','err');return;}
+    const fields={estadoInforme:informeForm.estadoInforme,link:informeForm.link,fechaPublicacion:informeForm.fechaPublicacion||''};
+    setSyncingAT(true);
+    if(recordId){
+      const res=await Airtable.update('visitas',recordId,fields);
+      setSyncingAT(false);
+      if(res.ok){setVisits(p=>p.map(v=>v.id!==vid?v:{...v,...fields}));showToast('✓ Informe registrado en Airtable');}
+      else showToast('Error al guardar: '+res.error,'err');
+    }else{
+      setSyncingAT(false);
+      setVisits(p=>p.map(v=>v.id!==vid?v:{...v,...fields}));
+      showToast('Guardado localmente (sin _recordId)','warn');
+    }
+    setInformeId(null);setInformeForm({estadoInforme:'Publicado',fechaPublicacion:'',link:''});
+  };
   const [filterArea,setFilterArea]=useState('');
   const [filterEstado,setFilterEstado]=useState('');
   const [filterOrigen,setFilterOrigen]=useState('');
@@ -816,7 +857,8 @@ function App(){
   const [showPwdPrompt,setShowPwdPrompt]=useState(false);
   const [pwdInput,setPwdInput]=useState('');
   const [pwdError,setPwdError]=useState('');
-  const EDIT_PASSWORD='cpt2026'; // ← CAMBIAR ESTA CONTRASEÑA
+  const TEAM_PASSWORD='equipocpt2026';   // clave equipo: completar formularios
+  const ADMIN_PASSWORD='cpt2026';         // clave admin: editar planificación (cambiar anualmente)
 
   const showToast=useCallback((msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),3000);},[]);
 
@@ -916,7 +958,7 @@ function App(){
   const toggleSort=f=>{if(sortField===f)setSortDir(d=>d==='asc'?'desc':'asc');else{setSortField(f);setSortDir('asc');}};
   const toggleHistSort=f=>{if(histSortField===f)setHistSortDir(d=>d==='asc'?'desc':'asc');else{setHistSortField(f);setHistSortDir('asc');}};
   const checkPassword=()=>{
-    if(pwdInput===EDIT_PASSWORD){
+    if(pwdInput===ADMIN_PASSWORD||pwdInput===TEAM_PASSWORD){
       setEditUnlocked(true);
       setShowPwdPrompt(false);
       setPwdInput('');
@@ -930,17 +972,47 @@ function App(){
 
   const startEdit=v=>{
     if(!editUnlocked){setShowPwdPrompt(true);return;}
-    setEditingId(v.id);setEditForm({estado:v.estado,fechaVisita:v.fechaVisita,mesReal:v.mesReal,diasTotalReal:v.diasTotalReal,equipoReal:v.equipoReal,totalParticipantesReal:v.totalParticipantesReal,justificacionDesviacion:v.justificacionDesviacion||'',observaciones:v.observaciones||''});
+    setEditingId(v.id);setEditForm({
+      estado:v.estado||'Planificada',
+      areaEje:v.areaEje||'',
+      recinto:v.recinto||'',
+      region:v.region||'',
+      comuna:v.comuna||'',
+      tipoVisita:v.tipoVisita||'',
+      tipoRecinto:v.tipoRecinto||'',
+      expertoEncargado:v.expertoEncargado||'',
+      analistaEncargado:v.analistaEncargado||'',
+      equipoReal:v.equipoReal||'',
+      fechaVisita:v.fechaVisita||'',
+      mesReal:v.mesReal||'',
+      diasTotalReal:v.diasTotalReal||0,
+      totalParticipantesReal:v.totalParticipantesReal||0,
+      justificacionDesviacion:v.justificacionDesviacion||'',
+      observaciones:v.observaciones||'',
+      tema:v.tema||'',
+      nuevaFecha:'',
+    });
   };
   const saveEdit=async id=>{
     if(!editUnlocked){setShowPwdPrompt(true);return;}
     const o=planVisits.find(v=>v.id===id);if(!o)return;
-    if(editForm.estado==='Realizada'&&!editForm.fechaVisita){showToast('Ingrese fecha','err');return;}
-    if(editForm.estado==='Suspendida'&&!(editForm.justificacionDesviacion||'').trim()){showToast('Ingrese justificación','err');return;}
+    if(editForm.estado==='Realizada'&&!editForm.fechaVisita){showToast('Ingrese fecha real','err');return;}
+    if(editForm.estado==='Reprogramada'&&!editForm.nuevaFecha){showToast('Ingrese la nueva fecha planificada','err');return;}
+    if((editForm.estado==='Suspendida'||editForm.estado==='Reprogramada')&&!(editForm.justificacionDesviacion||'').trim()){showToast('Ingrese justificación','err');return;}
     setSyncingAT(true);
-    const updated={...o,...editForm};
+    const isReprg=editForm.estado==='Reprogramada';
+    const fieldsToSave=isReprg?{
+      estado:'Reprogramada',
+      fechaVisita:editForm.nuevaFecha,
+      fechaPlanOriginal:o.fechaPlanOriginal||o.fechaVisita||o.mesPlan||'',
+      justificacionDesviacion:(o.justificacionDesviacion?o.justificacionDesviacion+' | ':'')+'Reprogramada: '+editForm.justificacionDesviacion,
+      areaEje:editForm.areaEje,region:editForm.region,recinto:editForm.recinto,
+      tipoVisita:editForm.tipoVisita,tipoRecinto:editForm.tipoRecinto,
+      expertoEncargado:editForm.expertoEncargado,
+    }:{...editForm};
+    const updated={...o,...fieldsToSave};
     if(o._recordId){
-      const res=await Airtable.update('plan', o._recordId, editForm);
+      const res=await Airtable.update('plan', o._recordId, fieldsToSave);
       setSyncingAT(false);
       if(res.ok){
         setPlanVisits(p=>p.map(v=>v.id===id?{...updated,_recordId:o._recordId}:v));
@@ -1167,9 +1239,167 @@ function App(){
         {activeTab==='planificacion'&&(<div>
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'9px 16px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div style={{display:'flex',alignItems:'center',gap:7}}><Clock size={13} color={C.accent}/><span style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase'}}>Fecha de seguimiento</span><span style={{fontSize:12,fontWeight:800,color:C.text}}>{new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</span></div>
-            <button onClick={openRegNoPlan} style={{padding:'6px 12px',background:`linear-gradient(135deg,${C.accent},${C.accentDark})`,color:'#fff',border:'none',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:font,display:'flex',alignItems:'center',gap:3}}><Plus size={11}/>Registrar</button>
+            {(()=>{const hoy=new Date();const pend=planVisits.filter(v=>isPendienteConfirmacion(v,hoy));return pend.length>0&&(
+              <button onClick={()=>{if(!editUnlocked){setShowPwdPrompt(true);return;}setShowPorConfirmar(v=>!v);}}
+                style={{padding:'6px 12px',background:showPorConfirmar?`linear-gradient(135deg,#9B1C1C,#7A1515)`:`linear-gradient(135deg,#DC3545,#9B1C1C)`,color:'#fff',border:'none',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:font,display:'flex',alignItems:'center',gap:4}}>
+                <span style={{background:'rgba(255,255,255,0.25)',borderRadius:'50%',width:16,height:16,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800}}>{pend.length}</span>
+                Por confirmar
+              </button>
+            );})()}
+            <button onClick={()=>{if(!editUnlocked){setShowPwdPrompt(true);return;}openRegNoPlan();}} style={{padding:'6px 12px',background:`linear-gradient(135deg,${C.accent},${C.accentDark})`,color:'#fff',border:'none',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:font,display:'flex',alignItems:'center',gap:3}}><Plus size={11}/>Registrar</button>
           </div>
-          <div style={{marginBottom:12}}><h2 style={{fontSize:17,fontWeight:800,margin:0}}>Seguimiento Planificación 2025</h2><p style={{fontSize:10,color:C.gray,margin:'2px 0 0'}}>Fuente: Planificación_2025.xlsx · {planVisits.length} visitas · Pase el mouse sobre cada indicador para ver su descripción. Haga clic para desglose.</p></div>
+          <div style={{marginBottom:12}}><h2 style={{fontSize:17,fontWeight:800,margin:0}}>Seguimiento Planificación 2025</h2>
+
+          {/* ══ PANEL POR CONFIRMAR ══ */}
+          {showPorConfirmar&&!confirmId&&(()=>{
+            const hoy=new Date();
+            const pend=planVisits.filter(v=>isPendienteConfirmacion(v,hoy)).sort((a,b)=>{
+              const da=parseDateStr(a.fechaVisita),db=parseDateStr(b.fechaVisita);
+              if(!da&&!db)return(MESES_IDX[a.mesPlan]??99)-(MESES_IDX[b.mesPlan]??99);
+              if(!da)return 1;if(!db)return -1;return da-db;
+            });
+            return(
+              <div style={{background:'#fff',borderRadius:12,border:'2px solid #DC3545',marginBottom:16,overflow:'hidden'}}>
+                <div style={{background:'linear-gradient(135deg,#9B1C1C,#7A1515)',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div>
+                    <div style={{fontSize:9,fontWeight:700,color:'#FCA5A5',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:2}}>Requieren confirmación</div>
+                    <div style={{fontSize:13,fontWeight:800,color:'#fff'}}>{pend.length} visita{pend.length!==1?'s':''} con fecha vencida sin confirmar</div>
+                  </div>
+                  <button onClick={()=>setShowPorConfirmar(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.5)',fontSize:18,cursor:'pointer'}}>✕</button>
+                </div>
+                <div style={{maxHeight:360,overflowY:'auto'}}>
+                  {pend.map((v,i)=>(
+                    <div key={v.id} style={{padding:'10px 16px',borderBottom:'1px solid #DDE7F2',display:'flex',alignItems:'center',gap:10,background:i%2===0?'#fff':'#FFF9F9'}}>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:'#DC3545',flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v.recinto}</div>
+                        <div style={{fontSize:10,color:'#5A6A80'}}>{v.areaEje} · {v.region||'Sin región'} · {v.mesPlan}{v.fechaVisita?' ('+v.fechaVisita+')':''}</div>
+                      </div>
+                      <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,background:'#FCE4E4',color:'#9B1C1C',flexShrink:0}}>{v.fechaVisita?'Fecha vencida':'Mes transcurrido'}</span>
+                      <button onClick={()=>{
+                        setConfirmId(v.id);
+                        setConfirmForm({resultado:'Realizada',fechaVisita:v.fechaVisita||'',mesReal:v.mesReal||v.mesPlan||'',
+                          diasTotalReal:v.diasTotalReal||v.diasTotalPlan||0,expertoEncargado:v.expertoEncargado||'',
+                          equipoReal:v.equipoReal||'',totalParticipantesReal:v.totalParticipantesReal||0,
+                          region:v.region||'',recinto:v.recinto||'',tipoRecinto:v.tipoRecinto||'',
+                          tipoVisita:v.tipoVisita||'',areaEje:v.areaEje||'',justificacion:'',nuevaFecha:''});
+                        setShowPorConfirmar(false);
+                      }} style={{padding:'5px 12px',background:'linear-gradient(135deg,#1E3875,#142E66)',color:'#fff',border:'none',borderRadius:6,fontSize:10,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+                        Confirmar →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{padding:'8px 16px',background:'#F2F6FB',borderTop:'1px solid #DDE7F2',fontSize:9,color:'#5A6A80'}}>
+                  Nada se suspende automáticamente — cada visita debe ser confirmada por la SE.
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ══ FORMULARIO DE CONFIRMACIÓN ══ */}
+          {confirmId&&(()=>{
+            const v=planVisits.find(x=>x.id===confirmId);
+            if(!v)return null;
+            const isSusp=confirmForm.resultado==='Suspendida';
+            const isReprg=confirmForm.resultado==='Reprogramada';
+            const inputS={width:'100%',padding:'7px 10px',border:'1px solid #D8E3EF',borderRadius:8,fontSize:12,fontFamily:'Atkinson Hyperlegible Next,sans-serif',color:'#1A2840',background:'#fff'};
+            const labelS={display:'block',fontSize:10,fontWeight:700,color:'#5A6A80',marginBottom:3,textTransform:'uppercase'};
+            const saveConfirm=async()=>{
+              if(!confirmForm.fechaVisita&&!isSusp){showToast('Ingrese fecha real','err');return;}
+              if(isReprg&&!confirmForm.nuevaFecha){showToast('Ingrese nueva fecha','err');return;}
+              if((isSusp||isReprg)&&!confirmForm.justificacion.trim()){showToast('Ingrese justificación','err');return;}
+              const fechaOriginal=v.fechaPlanOriginal||v.fechaVisita||'';
+              const fields=isReprg?{
+                estado:'Reprogramada',fechaVisita:confirmForm.nuevaFecha,fechaPlanOriginal:fechaOriginal,
+                justificacionDesviacion:(v.justificacionDesviacion?v.justificacionDesviacion+' | ':'')+'Reprogramada: '+confirmForm.justificacion,
+                areaEje:confirmForm.areaEje,region:confirmForm.region,recinto:confirmForm.recinto,
+                tipoVisita:confirmForm.tipoVisita,tipoRecinto:confirmForm.tipoRecinto,expertoEncargado:confirmForm.expertoEncargado,
+              }:{
+                estado:confirmForm.resultado,fechaVisita:isSusp?v.fechaVisita:confirmForm.fechaVisita,
+                fechaPlanOriginal:fechaOriginal,mesReal:confirmForm.mesReal,
+                diasTotalReal:Number(confirmForm.diasTotalReal)||0,expertoEncargado:confirmForm.expertoEncargado,
+                equipoReal:confirmForm.equipoReal,totalParticipantesReal:Number(confirmForm.totalParticipantesReal)||0,
+                region:confirmForm.region,recinto:confirmForm.recinto,tipoRecinto:confirmForm.tipoRecinto,
+                tipoVisita:confirmForm.tipoVisita,areaEje:confirmForm.areaEje,
+                justificacionDesviacion:confirmForm.justificacion||v.justificacionDesviacion||'',
+              };
+              setSyncingAT(true);
+              if(v._recordId){
+                const res=await Airtable.update('plan',v._recordId,fields);
+                setSyncingAT(false);
+                if(res.ok){setPlanVisits(p=>p.map(x=>x.id!==confirmId?x:{...x,...fields,_recordId:v._recordId}));showToast(isReprg?'Visita reprogramada — volverá a Por confirmar cuando venza la nueva fecha':'Visita confirmada como '+confirmForm.resultado);}
+                else showToast('Error al guardar: '+res.error,'err');
+              }else{
+                setSyncingAT(false);
+                setPlanVisits(p=>p.map(x=>x.id!==confirmId?x:{...x,...fields}));
+                showToast('Guardado localmente','warn');
+              }
+              setConfirmId(null);setConfirmForm({});
+            };
+            return(
+              <div style={{background:'#fff',borderRadius:12,border:'2px solid #1E3875',marginBottom:16,overflow:'hidden'}}>
+                <div style={{background:'linear-gradient(135deg,#0D1F47,#1E3875)',padding:'14px 18px',borderBottom:'3px solid #F0BC5E',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontSize:9,fontWeight:700,color:'#F0BC5E',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:3}}>Confirmar visita — {v.id}</div>
+                    <div style={{fontSize:14,fontWeight:800,color:'#fff'}}>{v.recinto}</div>
+                    <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginTop:2}}>{v.areaEje} · Planificada: {v.mesPlan}{v.fechaVisita?' ('+v.fechaVisita+')':''}{v.fechaPlanOriginal&&v.fechaPlanOriginal!==v.fechaVisita?' — original: '+v.fechaPlanOriginal:''}</div>
+                  </div>
+                  <button onClick={()=>{setConfirmId(null);setConfirmForm({});}} style={{background:'none',border:'none',color:'rgba(255,255,255,0.5)',fontSize:18,cursor:'pointer'}}>✕</button>
+                </div>
+                <div style={{padding:'16px 18px'}}>
+                  <div style={{display:'flex',gap:8,marginBottom:14}}>
+                    {['Realizada','Suspendida','Reprogramada'].map(r=>(
+                      <button key={r} onClick={()=>setConfirmForm(f=>({...f,resultado:r}))}
+                        style={{flex:1,padding:'9px 6px',borderRadius:8,border:`2px solid ${confirmForm.resultado===r?(r==='Realizada'?'#28A05A':r==='Suspendida'?'#DC3545':'#D4941A'):'#D8E3EF'}`,
+                          background:confirmForm.resultado===r?(r==='Realizada'?'#D8F5E6':r==='Suspendida'?'#FCE4E4':'#FEF3D8'):'#fff',
+                          color:confirmForm.resultado===r?(r==='Realizada'?'#1A7840':r==='Suspendida'?'#9B1C1C':'#8A5A08'):'#5A6A80',
+                          fontWeight:700,fontSize:11,cursor:'pointer',fontFamily:'Atkinson Hyperlegible Next,sans-serif'}}>
+                        {r==='Realizada'?'✓ Realizada':r==='Suspendida'?'✕ Suspendida':'↻ Reprogramada'}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:8,marginBottom:8}}>
+                    <div><label style={labelS}>Área/Eje</label><select value={confirmForm.areaEje} onChange={e=>setConfirmForm(f=>({...f,areaEje:e.target.value}))} style={inputS}><option value="">—</option>{CAT.areas.map(a=><option key={a}>{a}</option>)}</select></div>
+                    <div><label style={labelS}>Región</label><select value={confirmForm.region} onChange={e=>setConfirmForm(f=>({...f,region:e.target.value}))} style={inputS}><option value="">—</option>{CAT.regiones.map(r=><option key={r}>{r}</option>)}</select></div>
+                    <div style={{gridColumn:'span 2'}}><label style={labelS}>Recinto *</label><input value={confirmForm.recinto} onChange={e=>setConfirmForm(f=>({...f,recinto:e.target.value}))} style={inputS}/></div>
+                    <div><label style={labelS}>Tipo Recinto</label><input value={confirmForm.tipoRecinto} onChange={e=>setConfirmForm(f=>({...f,tipoRecinto:e.target.value}))} style={inputS}/></div>
+                    <div><label style={labelS}>Tipo Visita</label><select value={confirmForm.tipoVisita} onChange={e=>setConfirmForm(f=>({...f,tipoVisita:e.target.value}))} style={inputS}><option value="">—</option>{CAT.tiposVisita.map(t=><option key={t}>{t}</option>)}</select></div>
+                    {!isSusp&&<>
+                      <div><label style={labelS}>{isReprg?'Nueva fecha *':'Fecha real *'}</label>
+                        <input value={isReprg?confirmForm.nuevaFecha:confirmForm.fechaVisita}
+                          onChange={e=>setConfirmForm(f=>isReprg?{...f,nuevaFecha:e.target.value}:{...f,fechaVisita:e.target.value})}
+                          placeholder="DD/MM/AAAA" style={inputS}/></div>
+                      {!isReprg&&<>
+                        <div><label style={labelS}>Mes Real</label><select value={confirmForm.mesReal} onChange={e=>setConfirmForm(f=>({...f,mesReal:e.target.value}))} style={inputS}><option value="">—</option>{CAT.meses.map(m=><option key={m}>{m}</option>)}</select></div>
+                        <div><label style={labelS}>Días efectivos</label><input type="number" min={0} step={0.5} value={confirmForm.diasTotalReal} onChange={e=>setConfirmForm(f=>({...f,diasTotalReal:e.target.value}))} style={inputS}/></div>
+                        <div><label style={labelS}>N° participantes</label><input type="number" min={0} value={confirmForm.totalParticipantesReal} onChange={e=>setConfirmForm(f=>({...f,totalParticipantesReal:e.target.value}))} style={inputS}/></div>
+                      </>}
+                    </>}
+                    {!isReprg&&<>
+                      <div><label style={labelS}>Experto/a encargado/a</label><select value={confirmForm.expertoEncargado} onChange={e=>setConfirmForm(f=>({...f,expertoEncargado:e.target.value}))} style={inputS}><option value="">—</option>{CAT.encargados.map(e=><option key={e}>{e}</option>)}</select></div>
+                      <div style={{gridColumn:'span 2'}}><label style={labelS}>Equipo que participó</label><input value={confirmForm.equipoReal} onChange={e=>setConfirmForm(f=>({...f,equipoReal:e.target.value}))} placeholder="Nombres separados por coma" style={inputS}/></div>
+                    </>}
+                    {(isSusp||isReprg)&&<div style={{gridColumn:'1/-1'}}><label style={{...labelS,color:'#9B1C1C'}}>{isSusp?'Motivo suspensión *':'Motivo reprogramación *'}</label>
+                      <textarea value={confirmForm.justificacion} onChange={e=>setConfirmForm(f=>({...f,justificacion:e.target.value}))} rows={2} style={{...inputS,borderColor:confirmForm.justificacion?'#D8E3EF':'#DC3545',resize:'vertical'}}/></div>}
+                  </div>
+                  <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'center'}}>
+                    <button onClick={()=>{setConfirmId(null);setConfirmForm({});setShowPorConfirmar(true);}}
+                      style={{padding:'7px 14px',background:'#fff',color:'#1A2840',border:'1px solid #D8E3EF',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer'}}>← Volver a lista</button>
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>{setConfirmId(null);setConfirmForm({});}}
+                        style={{padding:'7px 14px',background:'#fff',color:'#1A2840',border:'1px solid #D8E3EF',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
+                      <button onClick={saveConfirm}
+                        style={{padding:'7px 20px',background:isSusp?'linear-gradient(135deg,#DC3545,#9B1C1C)':isReprg?'linear-gradient(135deg,#D4941A,#A86E0C)':'linear-gradient(135deg,#28A05A,#1A7840)',
+                          color:'#fff',border:'none',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer'}}>
+                        {isSusp?'Marcar suspendida':isReprg?'Reprogramar →':'Confirmar realizada ✓'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}<p style={{fontSize:10,color:C.gray,margin:'2px 0 0'}}>Fuente: Planificación_2025.xlsx · {planVisits.length} visitas · Pase el mouse sobre cada indicador para ver su descripción. Haga clic para desglose.</p></div>
 
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
             <KpiCard icon={Calendar} label="Visitas Programadas" value={kpis.totalPlan} sub="Total en planificación" accent={C.navy} color={C.navy} kpiKey="planProgramadas" tipKey="planProgramadas"/>
@@ -1255,11 +1485,46 @@ function App(){
                           <div style={{padding:'12px 14px',background:'#FFFAF0',borderTop:`2px solid ${C.accentLight}`,borderBottom:`2px solid ${C.accentLight}`}}>
                             <div style={{fontSize:9,fontWeight:700,color:C.accent,textTransform:'uppercase',marginBottom:8}}>Editar — {v.id}</div>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:8}}>
-                              <div><label style={labelStyle}>Estado</label><select value={editForm.estado} onChange={e=>setEditForm({...editForm,estado:e.target.value})} style={inputStyle}><option value="Programada">Programada</option><option value="Realizada">Realizada</option><option value="Suspendida">Suspendida</option></select></div>
-                              {editForm.estado==='Realizada'&&<><div><label style={labelStyle}>Fecha</label><input value={editForm.fechaVisita} onChange={e=>setEditForm({...editForm,fechaVisita:e.target.value})} placeholder="DD/MM/AAAA" style={inputStyle}/></div>
-                              <div><label style={labelStyle}>Mes Real</label><select value={editForm.mesReal} onChange={e=>setEditForm({...editForm,mesReal:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.meses.map(m=><option key={m}>{m}</option>)}</select></div>
-                              <div><label style={labelStyle}>Días Real</label><input type="number" min={0} value={editForm.diasTotalReal} onChange={e=>setEditForm({...editForm,diasTotalReal:e.target.value})} style={inputStyle}/></div></>}
-                              <div style={{gridColumn:'1/-1'}}><label style={labelStyle}>Justificación</label><textarea value={editForm.justificacionDesviacion} onChange={e=>setEditForm({...editForm,justificacionDesviacion:e.target.value})} rows={2} style={{...inputStyle,resize:'vertical'}}/></div>
+                              {/* RESULTADO */}
+                              <div style={{gridColumn:'1/-1',display:'flex',gap:8,marginBottom:4}}>
+                                {['Realizada','Suspendida','Reprogramada'].map(r=>(
+                                  <button key={r} onClick={()=>setEditForm(f=>({...f,estado:r}))}
+                                    style={{flex:1,padding:'7px 4px',borderRadius:7,border:`2px solid ${editForm.estado===r?(r==='Realizada'?'#28A05A':r==='Suspendida'?'#DC3545':'#D4941A'):'#D8E3EF'}`,
+                                      background:editForm.estado===r?(r==='Realizada'?'#D8F5E6':r==='Suspendida'?'#FCE4E4':'#FEF3D8'):'#fff',
+                                      color:editForm.estado===r?(r==='Realizada'?'#1A7840':r==='Suspendida'?'#9B1C1C':'#8A5A08'):'#5A6A80',
+                                      fontWeight:700,fontSize:10,cursor:'pointer',fontFamily:'Atkinson Hyperlegible Next,sans-serif'}}>
+                                    {r==='Realizada'?'✓ Realizada':r==='Suspendida'?'✕ Suspendida':'↻ Reprogramada'}
+                                  </button>
+                                ))}
+                              </div>
+                              {/* CAMPOS PRINCIPALES */}
+                              <div><label style={labelStyle}>Área/Eje</label><select value={editForm.areaEje} onChange={e=>setEditForm({...editForm,areaEje:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.areas.map(a=><option key={a}>{a}</option>)}</select></div>
+                              <div><label style={labelStyle}>Región</label><select value={editForm.region} onChange={e=>setEditForm({...editForm,region:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.regiones.map(r=><option key={r}>{r}</option>)}</select></div>
+                              <div style={{gridColumn:'span 2'}}><label style={labelStyle}>Recinto *</label><input value={editForm.recinto} onChange={e=>setEditForm({...editForm,recinto:e.target.value})} style={inputStyle}/></div>
+                              <div><label style={labelStyle}>Tipo Visita</label><select value={editForm.tipoVisita} onChange={e=>setEditForm({...editForm,tipoVisita:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.tiposVisita.map(t=><option key={t}>{t}</option>)}</select></div>
+                              <div><label style={labelStyle}>Tipo Recinto</label><input value={editForm.tipoRecinto} onChange={e=>setEditForm({...editForm,tipoRecinto:e.target.value})} style={inputStyle}/></div>
+                              {/* EJECUCIÓN */}
+                              {editForm.estado!=='Suspendida'&&<>
+                                <div><label style={labelStyle}>{editForm.estado==='Reprogramada'?'Nueva fecha planificada':'Fecha real *'}</label>
+                                  <input value={editForm.estado==='Reprogramada'?editForm.nuevaFecha:editForm.fechaVisita}
+                                    onChange={e=>setEditForm(f=>editForm.estado==='Reprogramada'?{...f,nuevaFecha:e.target.value}:{...f,fechaVisita:e.target.value})}
+                                    placeholder="DD/MM/AAAA" style={inputStyle}/></div>
+                                {editForm.estado!=='Reprogramada'&&<>
+                                  <div><label style={labelStyle}>Mes Real</label><select value={editForm.mesReal} onChange={e=>setEditForm({...editForm,mesReal:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.meses.map(m=><option key={m}>{m}</option>)}</select></div>
+                                  <div><label style={labelStyle}>Días Real</label><input type="number" min={0} step={0.5} value={editForm.diasTotalReal} onChange={e=>setEditForm({...editForm,diasTotalReal:e.target.value})} style={inputStyle}/></div>
+                                  <div><label style={labelStyle}>N° Participantes</label><input type="number" min={0} value={editForm.totalParticipantesReal} onChange={e=>setEditForm({...editForm,totalParticipantesReal:e.target.value})} style={inputStyle}/></div>
+                                </>}
+                              </>}
+                              {/* EQUIPO */}
+                              {editForm.estado!=='Reprogramada'&&<>
+                                <div><label style={labelStyle}>Experto/a Encargado/a</label><select value={editForm.expertoEncargado} onChange={e=>setEditForm({...editForm,expertoEncargado:e.target.value})} style={inputStyle}><option value="">—</option>{CAT.encargados.map(e=><option key={e}>{e}</option>)}</select></div>
+                                <div style={{gridColumn:'span 2'}}><label style={labelStyle}>Equipo que participó</label><input value={editForm.equipoReal} onChange={e=>setEditForm({...editForm,equipoReal:e.target.value})} placeholder="Nombres separados por coma" style={inputStyle}/></div>
+                              </>}
+                              {/* JUSTIFICACIÓN */}
+                              {(editForm.estado==='Suspendida'||editForm.estado==='Reprogramada')&&
+                                <div style={{gridColumn:'1/-1'}}><label style={{...labelStyle,color:'#9B1C1C'}}>{editForm.estado==='Suspendida'?'Motivo suspensión *':'Motivo reprogramación *'}</label>
+                                  <textarea value={editForm.justificacionDesviacion} onChange={e=>setEditForm({...editForm,justificacionDesviacion:e.target.value})} rows={2} style={{...inputStyle,borderColor:editForm.justificacionDesviacion?'#D8E3EF':'#DC3545',resize:'vertical'}}/></div>}
+                              <div style={{gridColumn:'1/-1'}}><label style={labelStyle}>Observaciones</label><textarea value={editForm.observaciones} onChange={e=>setEditForm({...editForm,observaciones:e.target.value})} rows={2} style={{...inputStyle,resize:'vertical'}}/></div>
                             </div>
                             <div style={{display:'flex',gap:5,marginTop:10,justifyContent:'flex-end'}}>
                               <button onClick={cancelEdit} style={{padding:'6px 12px',background:'#fff',color:C.text,border:`1px solid ${C.grayLight}`,borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:font}}>Cancelar</button>
@@ -1384,8 +1649,54 @@ function App(){
                     <td style={{padding:'6px 5px'}}>{sc(v.fechaVisita)}</td>
                     <td style={{padding:'6px 5px',textAlign:'center',fontWeight:700}}>{scNum(v.diasTotalReal)}</td>
                     <td style={{padding:'6px 5px'}}>{sc(v.expertoEncargado)}</td>
-                    <td style={{padding:'6px 5px'}}>{v.link?<a href={v.link} target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontSize:9,fontWeight:600,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:2}}><ExternalLink size={8}/>Informe</a>:<span style={{color:C.gray,fontSize:9}}>No publicado</span>}</td>
+                    <td style={{padding:'6px 5px'}} onClick={e=>e.stopPropagation()}>
+                      <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                        {v.link&&<a href={v.link} target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontSize:9,fontWeight:600,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:2}}><ExternalLink size={8}/>Ver</a>}
+                        {editUnlocked&&<button onClick={()=>{setInformeId('hist-'+v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}}
+                          style={{fontSize:9,fontWeight:700,padding:'2px 5px',borderRadius:3,border:'1px solid #28A05A',background:v.link?'#D8F5E6':'#fff',color:v.link?'#1A7840':'#5A6A80',cursor:'pointer'}}>
+                          📄{v.link?'✎':'+ Informe'}
+                        </button>}
+                        {!v.link&&!editUnlocked&&<span style={{color:C.gray,fontSize:9}}>No publicado</span>}
+                      </div>
+                    </td>
                   </tr>
+                  {informeId===('hist-'+v.id)&&<tr><td colSpan={12} style={{padding:0}}>
+                    <div style={{padding:'14px 16px',background:'#F0FFF4',borderTop:'2px solid #28A05A',borderBottom:'2px solid #28A05A',animation:'fadeIn 0.2s'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                        <div>
+                          <div style={{fontSize:9,fontWeight:700,color:'#1A7840',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:2}}>📄 Registrar informe publicado</div>
+                          <div style={{fontSize:12,fontWeight:700,color:'#1A2840'}}>{v.recinto} · {v.areaEje}</div>
+                          <div style={{fontSize:10,color:'#5A6A80'}}>Este registro es independiente de los datos de la visita</div>
+                        </div>
+                        <button onClick={()=>{setInformeId(null);setInformeForm({estadoInforme:'Publicado',fechaPublicacion:'',link:''});}} style={{background:'none',border:'none',color:'#5A6A80',fontSize:16,cursor:'pointer'}}>✕</button>
+                      </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8,marginBottom:10}}>
+                        <div><label style={{display:'block',fontSize:10,fontWeight:700,color:'#5A6A80',marginBottom:3,textTransform:'uppercase'}}>Estado del informe</label>
+                          <select value={informeForm.estadoInforme} onChange={e=>setInformeForm(f=>({...f,estadoInforme:e.target.value}))}
+                            style={{width:'100%',padding:'7px 10px',border:'1px solid #D8E3EF',borderRadius:8,fontSize:12,fontFamily:'Atkinson Hyperlegible Next,sans-serif',color:'#1A2840',background:'#fff'}}>
+                            <option value="Publicado">Publicado</option>
+                            <option value="En elaboración">En elaboración</option>
+                            <option value="En revisión">En revisión</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="No aplica">No aplica</option>
+                          </select></div>
+                        <div><label style={{display:'block',fontSize:10,fontWeight:700,color:'#5A6A80',marginBottom:3,textTransform:'uppercase'}}>Fecha de publicación</label>
+                          <input value={informeForm.fechaPublicacion} onChange={e=>setInformeForm(f=>({...f,fechaPublicacion:e.target.value}))}
+                            placeholder="DD/MM/AAAA" style={{width:'100%',padding:'7px 10px',border:'1px solid #D8E3EF',borderRadius:8,fontSize:12,fontFamily:'Atkinson Hyperlegible Next,sans-serif',color:'#1A2840',background:'#fff'}}/></div>
+                        <div style={{gridColumn:'span 2'}}><label style={{display:'block',fontSize:10,fontWeight:700,color:'#5A6A80',marginBottom:3,textTransform:'uppercase'}}>Link al informe publicado (mnpt.cl) *</label>
+                          <input value={informeForm.link} onChange={e=>setInformeForm(f=>({...f,link:e.target.value}))}
+                            placeholder="https://mnpt.cl/wp-content/uploads/..." style={{width:'100%',padding:'7px 10px',border:`1px solid ${informeForm.link?'#D8E3EF':'#DC3545'}`,borderRadius:8,fontSize:12,fontFamily:'Atkinson Hyperlegible Next,sans-serif',color:'#1A2840',background:'#fff'}}/></div>
+                      </div>
+                      <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                        <button onClick={()=>{setInformeId(null);setInformeForm({estadoInforme:'Publicado',fechaPublicacion:'',link:''});}}
+                          style={{padding:'7px 14px',background:'#fff',color:'#1A2840',border:'1px solid #D8E3EF',borderRadius:7,fontSize:10,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
+                        <button onClick={()=>saveInforme(v.id,v._recordId)}
+                          style={{padding:'7px 16px',background:'linear-gradient(135deg,#28A05A,#1A7840)',color:'#fff',border:'none',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer'}}>
+                          Guardar informe ✓
+                        </button>
+                      </div>
+                    </div>
+                  </td></tr>}
                   {isXh&&<VisitDetailPanel v={v} onClose={()=>setExpandedRow(null)} accentColor={C.accent}/>}
                   </Fragment>;
                 })}</tbody>
