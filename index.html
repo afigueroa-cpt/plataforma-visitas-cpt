@@ -872,6 +872,7 @@ function App(){
   const [onlineAT,setOnlineAT]=useState(true);
 
   // Carga inicial desde Airtable
+  const [atError,setAtError]=useState('');
   useEffect(()=>{
     async function load(){
       setLoadingAT(true);
@@ -880,6 +881,8 @@ function App(){
           Airtable.listAll('Visitas CPT'),
           Airtable.listAll('plan')
         ]);
+        console.log('[Airtable] visitas →', rv);
+        console.log('[Airtable] plan →', rp);
         // Normalizar fechas: si vienen en ISO (YYYY-MM-DD) convertir a DD/MM/AAAA
         const normalizeDate=(d)=>{
           if(!d)return '';
@@ -892,6 +895,7 @@ function App(){
         };
         const normalizeRecord=(r)=>({...r,fechaVisita:normalizeDate(r.fechaVisita)});
         if(rv.ok && rv.data && rv.data.length > 0) setVisits(rv.data.map(normalizeRecord));
+        else if(!rv.ok) setAtError('Error visitas: '+(rv.error||JSON.stringify(rv)));
         if(rp.ok && rp.data && rp.data.length > 0) setPlanVisits(rp.data.map(normalizeRecord));
         if(rv.ok) setLoadedAt(new Date());
         setOnlineAT(rv.ok && rp.ok);
@@ -1772,7 +1776,7 @@ function App(){
               {(histYearFilter||histAreaFilter||histTipoRFilter||histRegionFilter)&&<button onClick={()=>{setHistYearFilter('');setHistAreaFilter('');setHistTipoRFilter('');setHistRegionFilter('');setHistDrill(null);}} style={{padding:'4px 8px',border:`1px solid ${C.grayLight}`,borderRadius:6,fontSize:9,fontWeight:700,cursor:'pointer',background:'#fff',color:C.gray,fontFamily:font}}>✕ Limpiar</button>}
             </div>
           </div>
-          <div style={{marginBottom:12}}><h2 style={{fontSize:17,fontWeight:800,margin:0}}>Registro Histórico de Visitas{histYearFilter?` — ${histYearFilter}`:''}</h2><p style={{fontSize:10,color:C.gray,margin:'2px 0 0'}}>{histFiltered.length} registros{histFiltered.length<visits.length?` (filtrado) · ${visits.length} total`:` · ${visits.length} total`} · Haga clic en cualquier indicador para ver detalle · Fuente: Matriz Consolidada de Visitas CPT</p></div>
+          <div style={{marginBottom:12}}><h2 style={{fontSize:17,fontWeight:800,margin:0}}>Registro Histórico de Visitas{histYearFilter?` — ${histYearFilter}`:''}</h2><p style={{fontSize:10,color:C.gray,margin:'2px 0 0'}}>{histFiltered.length} registros{histFiltered.length<visits.length?` (filtrado) · ${visits.length} total`:` · ${visits.length} total`} · Haga clic en cualquier indicador para ver detalle · Fuente: Matriz Consolidada de Visitas CPT</p>{atError&&<p style={{fontSize:10,color:'#c0392b',margin:'4px 0 0',padding:'4px 8px',background:'#fdf0ef',borderRadius:4,border:'1px solid #f5c6c6'}}>⚠ {atError}</p>}</div>
 
           <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:12}}>
             {[
