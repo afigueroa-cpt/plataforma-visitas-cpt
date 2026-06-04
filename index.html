@@ -740,9 +740,20 @@ const toAirtableDate = d => {
 const Airtable = {
   async listAll(tableKey) {
     try {
-      const r = await fetch(`${AIRTABLE_CONFIG.proxyUrl}/list?table=${tableKey}`);
-      if (!r.ok) return {ok:false, error:'HTTP '+r.status};
-      return await r.json();
+      let all = [];
+      let offset = null;
+      do {
+        const url = offset
+          ? `${AIRTABLE_CONFIG.proxyUrl}/list?table=${encodeURIComponent(tableKey)}&offset=${encodeURIComponent(offset)}`
+          : `${AIRTABLE_CONFIG.proxyUrl}/list?table=${encodeURIComponent(tableKey)}`;
+        const r = await fetch(url);
+        if (!r.ok) return {ok:false, error:'HTTP '+r.status};
+        const json = await r.json();
+        if (!json.ok) return json;
+        all = all.concat(json.data || []);
+        offset = json.offset || null;
+      } while (offset);
+      return {ok:true, data:all};
     } catch(e) { return {ok:false, error:String(e)}; }
   },
   async update(tableKey, recordId, fields) {
@@ -857,6 +868,7 @@ function App(){
   const [planVisits,setPlanVisits]=useState(()=>planData2025.map(v=>({...v})));
   const [loadingAT,setLoadingAT]=useState(true);
   const [syncingAT,setSyncingAT]=useState(false);
+  const [loadedAt,setLoadedAt]=useState(null);
   const [onlineAT,setOnlineAT]=useState(true);
 
   // Carga inicial desde Airtable
@@ -865,7 +877,7 @@ function App(){
       setLoadingAT(true);
       try {
         const [rv, rp] = await Promise.all([
-          Airtable.listAll('visitas'),
+          Airtable.listAll('Visitas CPT'),
           Airtable.listAll('plan')
         ]);
         // Normalizar fechas: si vienen en ISO (YYYY-MM-DD) convertir a DD/MM/AAAA
@@ -881,6 +893,7 @@ function App(){
         const normalizeRecord=(r)=>({...r,fechaVisita:normalizeDate(r.fechaVisita)});
         if(rv.ok && rv.data && rv.data.length > 0) setVisits(rv.data.map(normalizeRecord));
         if(rp.ok && rp.data && rp.data.length > 0) setPlanVisits(rp.data.map(normalizeRecord));
+        if(rv.ok) setLoadedAt(new Date());
         setOnlineAT(rv.ok && rp.ok);
       } catch(e) {
         setOnlineAT(false);
@@ -906,7 +919,7 @@ function App(){
     const fields={estadoInforme:informeForm.estadoInforme,link:informeForm.link,fechaPublicacion:informeForm.fechaPublicacion||''};
     setSyncingAT(true);
     if(recordId){
-      const res=await Airtable.update('visitas',recordId,fields);
+      const res=await Airtable.update('Visitas CPT',recordId,fields);
       setSyncingAT(false);
       if(res.ok){setVisits(p=>p.map(v=>v.id!==vid?v:{...v,...fields}));showToast('✓ Informe registrado en Airtable');}
       else showToast('Error al guardar: '+res.error,'err');
@@ -989,7 +1002,10 @@ function App(){
 
   const showToast=useCallback((msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),3000);},[]);
 
-  const lastUpdate=useMemo(()=>computeLastUpdate(visits),[visits]);
+  const lastUpdate=useMemo(()=>{
+    if(loadedAt) return loadedAt.toLocaleDateString('es-CL',{year:'numeric',month:'long',day:'numeric'});
+    return computeLastUpdate(visits);
+  },[loadedAt,visits]);
 
   /* ═══ Planificación uses planVisits (from Planificación_2025.xlsx) ═══ */
   const planificadas=useMemo(()=>planVisits.filter(v=>v.origen==='Planificada'),[planVisits]);
@@ -1194,7 +1210,7 @@ function App(){
       if(!regForm.fechaVisita){showToast('Ingrese fecha','err');return;}
       const newVisit={...regForm,id:'V'+uid().toUpperCase().slice(0,5)};
       setSyncingAT(true);
-      const res=await Airtable.create('visitas', newVisit);
+      const res=await Airtable.create('Visitas CPT', newVisit);
       setSyncingAT(false);
       if(res.ok){
         setVisits(p=>[...p,res.data]);
@@ -1734,7 +1750,7 @@ function App(){
           <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'9px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
             <Clock size={13} color="#28A05A"/><span style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase'}}>Fecha de última actualización</span>
             <span style={{fontSize:12,fontWeight:800,color:C.text}}>{lastUpdate}</span>
-            <span style={{fontSize:9,color:C.gray,marginLeft:4}}>(basada en el último registro consolidado)</span>
+            <span style={{fontSize:9,color:C.gray,marginLeft:4}}>(última sincronización con Airtable)</span>
             <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
               <Filter size={11} color={C.gray}/>
               <select value={histYearFilter} onChange={e=>{setHistYearFilter(e.target.value);setHistDrill(null);}} style={{...inputStyle,width:'auto',minWidth:80,fontSize:10,padding:'4px 6px'}}>
