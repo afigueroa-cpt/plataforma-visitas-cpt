@@ -890,7 +890,7 @@ function App(){
     }
     load();
   },[]);
-  const [activeTab,setActiveTab]=useState('planificacion');
+  const [activeTab,setActiveTab]=useState('historico');
   const [editingId,setEditingId]=useState(null);
   const [editForm,setEditForm]=useState({});
   const HOY=new Date();
@@ -1328,7 +1328,7 @@ function App(){
           </div>
           <div style={{display:'flex',alignItems:'center',gap:4}}>
             <div style={{display:'flex',gap:3,background:'rgba(255,255,255,0.1)',borderRadius:9,padding:3}}>
-              {[{id:'planificacion',label:'Seguimiento Planificación',icon:ClipboardCheck},{id:'historico',label:'Registro Histórico de Visitas',icon:BookOpen}].map(tab=>(
+              {[{id:'historico',label:'Registro Histórico de Visitas',icon:BookOpen},{id:'planificacion',label:'Seguimiento Planificación',icon:ClipboardCheck}].map(tab=>(
                 <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setEditingId(null);setActiveKpi(null);setDrillRecinto(null);setHistDrill(null);}}
                   style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',fontSize:10,fontWeight:700,fontFamily:font,background:activeTab===tab.id?`linear-gradient(135deg,${C.accent},${C.accentDark})`:'transparent',color:activeTab===tab.id?'#fff':'rgba(255,255,255,0.6)',display:'flex',alignItems:'center',gap:4}}>
                   <tab.icon size={11}/>{tab.label}
