@@ -878,7 +878,7 @@ function App(){
       setLoadingAT(true);
       try {
         const [rv, rp] = await Promise.all([
-          Airtable.listAll('Visitas CPT'),
+          Airtable.listAll('visitas'),
           Airtable.listAll('plan')
         ]);
         console.log('[Airtable] visitas →', rv);
@@ -894,7 +894,13 @@ function App(){
           return s;
         };
         const normalizeRecord=(r)=>({...r,fechaVisita:normalizeDate(r.fechaVisita)});
-        if(rv.ok && rv.data && rv.data.length > 0) setVisits(rv.data.map(normalizeRecord));
+        if(rv.ok && rv.data && rv.data.length > 0){
+          setVisits(rv.data.map(normalizeRecord));
+          // Diagnóstico temporal: campos del primer registro
+          const sample=rv.data[0];
+          const missing=['recinto','mesReal','diasTotalReal','expertoEncargado','id'].filter(k=>!sample[k]);
+          if(missing.length>0) setAtError('Campos sin datos en primer registro: '+missing.join(', ')+' | Campos disponibles: '+Object.keys(sample).join(', '));
+        }
         else if(!rv.ok) setAtError('Error visitas: '+(rv.error||JSON.stringify(rv)));
         if(rp.ok && rp.data && rp.data.length > 0) setPlanVisits(rp.data.map(normalizeRecord));
         if(rv.ok) setLoadedAt(new Date());
@@ -923,7 +929,7 @@ function App(){
     const fields={estadoInforme:informeForm.estadoInforme,link:informeForm.link,fechaPublicacion:informeForm.fechaPublicacion||''};
     setSyncingAT(true);
     if(recordId){
-      const res=await Airtable.update('Visitas CPT',recordId,fields);
+      const res=await Airtable.update('visitas',recordId,fields);
       setSyncingAT(false);
       if(res.ok){setVisits(p=>p.map(v=>v.id!==vid?v:{...v,...fields}));showToast('✓ Informe registrado en Airtable');}
       else showToast('Error al guardar: '+res.error,'err');
@@ -1216,7 +1222,7 @@ function App(){
       if(!regForm.fechaVisita){showToast('Ingrese fecha','err');return;}
       const newVisit={...regForm,id:'V'+uid().toUpperCase().slice(0,5)};
       setSyncingAT(true);
-      const res=await Airtable.create('Visitas CPT', newVisit);
+      const res=await Airtable.create('visitas', newVisit);
       setSyncingAT(false);
       if(res.ok){
         setVisits(p=>[...p,res.data]);
