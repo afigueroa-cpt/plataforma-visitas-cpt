@@ -1132,7 +1132,7 @@ function App(){
     const hasSinClasificar=src.some(v=>!v.tipoRecinto||!v.tipoRecinto.trim());
     const byTR=[...tiposRecinto.map(t=>({name:t,total:src.filter(v=>v.tipoRecinto===t).length,visits:src.filter(v=>v.tipoRecinto===t)})).filter(x=>x.total>0),...(hasSinClasificar?[{name:'Sin clasificar',total:src.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim()).length,visits:src.filter(v=>!v.tipoRecinto||!v.tipoRecinto.trim())}].filter(x=>x.total>0):[])].sort((a,b)=>b.total-a.total);
     const byArea=CAT.areas.map(a=>({name:a,total:src.filter(v=>v.areaEje===a).length,visits:src.filter(v=>v.areaEje===a)})).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
-    const byRegion=REGIONES_ORDEN.map(r=>({name:r,total:src.filter(v=>v.region===r).length,visits:src.filter(v=>v.region===r)})).filter(x=>x.total>0);
+    const byRegion=REGIONES_ORDEN.map(r=>({name:r,total:src.filter(v=>v.region===r).length,visits:src.filter(v=>v.region===r)}));
     return {total,programadas,noProgramadas,informes,byYear,byMes,byTR,byArea,byRegion};
   },[histFiltered,visits,histYears,histYearFilter]);
 
@@ -1858,14 +1858,9 @@ function App(){
             </div>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:10}}>🗺 Por Región (Norte → Sur){histYearFilter?` (${histYearFilter})`:''}</div>
-              <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-                <MapaChile byRegion={histStats.byRegion||[]} activeRegion={histDrill?.type==='h-region'?histDrill.value:null}
+              <MapaChile byRegion={histStats.byRegion||[]} activeRegion={histDrill?.type==='h-region'?histDrill.value:null}
                   onRegionClick={(name,d)=>{const isA=histDrill?.type==='h-region'&&histDrill.value===name;setHistDrill(isA?null:{type:'h-region',value:name,visits:d?.visits||[]});}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  {histStats.byRegion&&histStats.byRegion.map((r,i)=>{const mx=Math.max(...(histStats.byRegion||[{total:1}]).map(x=>x.total),1);const isA=histDrill?.type==='h-region'&&histDrill.value===r.name;
-                    return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.navy} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-region',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}} onRecintoClick={r=>{setHistDrill({type:'recinto',value:r,visits:visits.filter(v=>(v.recinto||'').trim()===r.trim())});}}/>}</Fragment>;})}
-                </div>
-              </div>
+              {histDrill?.type==='h-region'&&<VisitTable rows={histDrill.visits} title={histDrill.value} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}} onRecintoClick={r=>{setHistDrill({type:'recinto',value:r,visits:visits.filter(v=>(v.recinto||'').trim()===r.trim())});}}/>}
             </div>
           </div>
 
