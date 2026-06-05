@@ -674,7 +674,87 @@ function VisitDetailPanel({v, onClose, accentColor}) {
   );
 }
 
-function VisitTable({rows,title,showClose,onClose,canEdit,onInforme,onRecintoClick}){
+function MapaChile({byRegion, onRegionClick, activeRegion}) {
+  const [hovered, setHovered] = React.useState(null);
+  const dataMap = {};
+  (byRegion||[]).forEach(r => { dataMap[r.name] = r; });
+  const maxVal = Math.max(...(byRegion||[]).map(r=>r.total), 1);
+  const getColor = (name) => {
+    const d = dataMap[name];
+    if (!d || !d.total) return '#e8edf3';
+    const t = d.total / maxVal;
+    const r = Math.round(26 + (180-26)*(1-t));
+    const g = Math.round(51 + (210-51)*(1-t));
+    const b = Math.round(83 + (240-83)*(1-t));
+    return `rgb(${Math.round(26+(224-26)*(1-t))},${Math.round(51+(237-51)*(1-t))},${Math.round(83+(248-83)*(1-t))})`;
+  };
+  const navy = (name) => {
+    const d = dataMap[name];
+    if (!d || !d.total) return '#e8edf3';
+    const t = Math.min(d.total / maxVal, 1);
+    const r = Math.round(224 - (224-26)*t);
+    const g = Math.round(237 - (237-51)*t);
+    const b = Math.round(248 - (248-83)*t);
+    return `rgb(${r},${g},${b})`;
+  };
+  const REGIONES = ['Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo','Valparaíso','Metropolitana','O\'Higgins','Maule','Ñuble','Bio Bío','Araucanía','Los Ríos','Los Lagos','Aysén','Magallanes'];
+  // Paths simplificados de Chile (coordinate system 0,0 → 110,600)
+  const PATHS = {
+    'Arica y Parinacota':   'M30,0 L80,0 L82,2 L84,32 L32,34 Z',
+    'Tarapacá':             'M32,34 L84,32 L86,34 L88,72 L34,74 Z',
+    'Antofagasta':          'M34,74 L88,72 L90,74 L92,160 L36,162 Z',
+    'Atacama':              'M36,162 L92,160 L94,162 L94,215 L38,217 Z',
+    'Coquimbo':             'M38,217 L94,215 L94,217 L92,268 L40,270 Z',
+    'Valparaíso':           'M40,270 L92,268 L90,270 L86,296 L40,298 Z',
+    'Metropolitana':        'M44,298 L86,296 L84,298 L82,320 L46,322 Z',
+    'O\'Higgins':           'M46,322 L82,320 L80,322 L78,344 L48,346 Z',
+    'Maule':                'M48,346 L78,344 L76,346 L74,372 L48,374 Z',
+    'Ñuble':                'M48,374 L74,372 L72,374 L70,392 L48,394 Z',
+    'Bio Bío':              'M48,394 L70,392 L68,394 L64,416 L46,418 Z',
+    'Araucanía':            'M46,418 L64,416 L62,418 L58,444 L44,446 Z',
+    'Los Ríos':             'M44,446 L58,444 L56,446 L52,464 L42,466 Z',
+    'Los Lagos':            'M42,466 L52,464 L50,466 L46,508 L36,510 L32,490 L34,468 Z',
+    'Aysén':                'M32,510 L46,508 L44,510 L38,558 L22,560 L20,530 Z',
+    'Magallanes':           'M20,560 L38,558 L36,560 L28,598 L8,600 L6,580 Z',
+  };
+  const tip = hovered && dataMap[hovered];
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+      <div style={{position:'relative',display:'inline-block'}}>
+        <svg viewBox="0 0 110 605" width={90} height={480} style={{display:'block'}}>
+          {REGIONES.map(name=>{
+            const isActive = activeRegion===name;
+            const isHov = hovered===name;
+            const d = dataMap[name];
+            return (
+              <path key={name} d={PATHS[name]}
+                fill={navy(name)}
+                stroke={isActive||isHov?'#1a3353':'#fff'}
+                strokeWidth={isActive||isHov?1.5:0.5}
+                style={{cursor:'pointer',transition:'fill 0.15s',filter:isActive?'drop-shadow(0 0 3px #1a335388)':undefined}}
+                onClick={()=>onRegionClick&&onRegionClick(name, d)}
+                onMouseEnter={()=>setHovered(name)}
+                onMouseLeave={()=>setHovered(null)}
+              />
+            );
+          })}
+        </svg>
+        {hovered&&(
+          <div style={{position:'absolute',top:0,left:100,background:'rgba(26,51,83,0.95)',color:'#fff',borderRadius:7,padding:'7px 10px',fontSize:10,fontWeight:600,whiteSpace:'nowrap',pointerEvents:'none',zIndex:10,boxShadow:'0 2px 8px rgba(0,0,0,0.25)'}}>
+            <div style={{fontWeight:800,marginBottom:2}}>{hovered}</div>
+            <div>{dataMap[hovered]?.total||0} visita{(dataMap[hovered]?.total||0)!==1?'s':''}</div>
+          </div>
+        )}
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:4,fontSize:9,color:'#888'}}>
+        <div style={{width:40,height:7,background:'linear-gradient(to right,#e0ecf8,#1a3353)',borderRadius:3}}/>
+        <span>Menos → Más</span>
+      </div>
+    </div>
+  );
+}
+
+function VisitTable({rows,title,showClose,onClose,canEdit,onInforme,onRecintoClick}){"
   const [expanded, setExpanded] = useState(null);
   if(!rows||rows.length===0)return null;
   return (
@@ -1819,9 +1899,15 @@ function App(){
                 return <Fragment key={i}><ClickableBarRow item={a} maxVal={mx} color={C.blueDark} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-area',value:a.name,visits:a.visits})}/>{isA&&<VisitTable rows={a.visits} title={a.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}} onRecintoClick={r=>{setHistDrill({type:'recinto',value:r,visits:visits.filter(v=>(v.recinto||'').trim()===r.trim())});}}/>}</Fragment>;})}
             </div>
             <div style={{background:'#fff',borderRadius:10,border:`1px solid ${C.grayLight}`,padding:'12px 14px'}}>
-              <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:6}}>🗺 Por Región (Norte → Sur){histYearFilter?` (${histYearFilter})`:''}</div>
-              {histStats.byRegion&&histStats.byRegion.map((r,i)=>{const mx=Math.max(...(histStats.byRegion||[{total:1}]).map(x=>x.total),1);const isA=histDrill?.type==='h-region'&&histDrill.value===r.name;
-                return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.navy} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-region',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}} onRecintoClick={r=>{setHistDrill({type:'recinto',value:r,visits:visits.filter(v=>(v.recinto||'').trim()===r.trim())});}}/>}</Fragment>;})}
+              <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:'uppercase',marginBottom:10}}>🗺 Por Región (Norte → Sur){histYearFilter?` (${histYearFilter})`:''}</div>
+              <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+                <MapaChile byRegion={histStats.byRegion||[]} activeRegion={histDrill?.type==='h-region'?histDrill.value:null}
+                  onRegionClick={(name,d)=>{const isA=histDrill?.type==='h-region'&&histDrill.value===name;setHistDrill(isA?null:{type:'h-region',value:name,visits:d?.visits||[]});}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  {histStats.byRegion&&histStats.byRegion.map((r,i)=>{const mx=Math.max(...(histStats.byRegion||[{total:1}]).map(x=>x.total),1);const isA=histDrill?.type==='h-region'&&histDrill.value===r.name;
+                    return <Fragment key={i}><ClickableBarRow item={r} maxVal={mx} color={C.navy} isActive={isA} onClick={()=>setHistDrill(isA?null:{type:'h-region',value:r.name,visits:r.visits})}/>{isA&&<VisitTable rows={r.visits} title={r.name} showClose onClose={()=>setHistDrill(null)} canEdit={editUnlocked} onInforme={v=>{setInformeId(v.id);setInformeForm({estadoInforme:v.estadoInforme||'Publicado',fechaPublicacion:v.fechaPublicacion||'',link:v.link||''});}} onRecintoClick={r=>{setHistDrill({type:'recinto',value:r,visits:visits.filter(v=>(v.recinto||'').trim()===r.trim())});}}/>}</Fragment>;})}
+                </div>
+              </div>
             </div>
           </div>
 
