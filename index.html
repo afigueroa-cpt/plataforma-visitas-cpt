@@ -591,6 +591,12 @@ const hasVariacionVisual=v=>v.origen==='Planificada'&&v.estado==='Realizada'&&ha
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const font="'Atkinson Hyperlegible Next','Helvetica Neue',Arial,sans-serif";
 const getYear=v=>{const d=parseDateStr(v.fechaVisita);return d?d.getFullYear():null;};
+const normalizeDate=d=>{
+  if(!d)return '';
+  const s=String(d).trim();
+  if(s.match(/^\d{4}-\d{2}-\d{2}/)){const p=s.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+  return s;
+};
 
 const computeLastUpdate=(data)=>{
   let latest=null;
@@ -699,7 +705,7 @@ function VisitTable({rows,title,showClose,onClose,canEdit,onInforme,onRecintoCli
                   <td style={{padding:'7px 6px',color:C.gray}}>{sc(v.region)}</td>
                   <td style={{padding:'7px 6px'}}>{sc(v.tipoVisita)}</td>
                   <td style={{padding:'7px 6px',fontWeight:600}}>{sc(v.mesReal||v.mesPlan)}</td>
-                  <td style={{padding:'7px 6px'}}>{sc(v.fechaVisita)}</td>
+                  <td style={{padding:'7px 6px'}}>{sc(normalizeDate(v.fechaVisita))}</td>
                   <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700}}>{scNum(v.diasTotalReal||v.diasTotalPlan)}</td>
                   <td style={{padding:'7px 6px'}}>{sc(v.expertoEncargado)}</td>
                   <td style={{padding:'7px 6px'}} onClick={e=>e.stopPropagation()}>
@@ -881,27 +887,9 @@ function App(){
           Airtable.listAll('visitas'),
           Airtable.listAll('plan')
         ]);
-        console.log('[Airtable] visitas →', rv);
-        console.log('[Airtable] plan →', rp);
-        // Normalizar fechas: si vienen en ISO (YYYY-MM-DD) convertir a DD/MM/AAAA
-        const normalizeDate=(d)=>{
-          if(!d)return '';
-          const s=String(d).trim();
-          if(s.match(/^\d{4}-\d{2}-\d{2}/)){
-            const p=s.split('T')[0].split('-');
-            return p[2]+'/'+p[1]+'/'+p[0];
-          }
-          return s;
-        };
         const normalizeRecord=(r)=>({...r,fechaVisita:normalizeDate(r.fechaVisita)});
-        if(rv.ok && rv.data && rv.data.length > 0){
-          setVisits(rv.data.map(normalizeRecord));
-          // Diagnóstico temporal: campos del primer registro
-          const sample=rv.data[0];
-          const missing=['recinto','mesReal','diasTotalReal','expertoEncargado','id'].filter(k=>!sample[k]);
-          if(missing.length>0) setAtError('Campos sin datos en primer registro: '+missing.join(', ')+' | Campos disponibles: '+Object.keys(sample).join(', '));
-        }
-        else if(!rv.ok) setAtError('Error visitas: '+(rv.error||JSON.stringify(rv)));
+        if(rv.ok && rv.data && rv.data.length > 0) setVisits(rv.data.map(normalizeRecord));
+        else if(!rv.ok) setAtError('Error al cargar datos: '+(rv.error||JSON.stringify(rv)));
         if(rp.ok && rp.data && rp.data.length > 0) setPlanVisits(rp.data.map(normalizeRecord));
         if(rv.ok) setLoadedAt(new Date());
         setOnlineAT(rv.ok && rp.ok);
