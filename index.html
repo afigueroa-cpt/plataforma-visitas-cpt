@@ -1780,15 +1780,18 @@ function App(){
 
           <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:12}}>
             {[
-              {label:'Total Visitas',value:histStats.total,accent:C.navy,icon:Hash,key:'all',visits:histFiltered},
-              {label:'Programadas',value:histStats.programadas,accent:'#4172B8',icon:Calendar,key:'prog',visits:histFiltered.filter(v=>v.origen==='Planificada')},
-              {label:'No Programadas',value:histStats.noProgramadas,accent:'#7C4AC8',icon:Zap,key:'noprog',visits:histFiltered.filter(v=>v.origen==='No Planificada')},
-              {label:'Informes Publicados',value:histStats.informes.length,accent:'#28A05A',icon:FileCheck,key:'informes',visits:histStats.informes},
+              {label:'Total Visitas',value:histStats.total,pct:null,accent:C.navy,icon:Hash,key:'all',visits:histFiltered},
+              {label:'Programadas',value:histStats.programadas,pct:histStats.total?Math.round(histStats.programadas/histStats.total*100):0,accent:'#4172B8',icon:Calendar,key:'prog',visits:histFiltered.filter(v=>v.origen==='Planificada')},
+              {label:'No Programadas',value:histStats.noProgramadas,pct:histStats.total?Math.round(histStats.noProgramadas/histStats.total*100):0,accent:'#7C4AC8',icon:Zap,key:'noprog',visits:histFiltered.filter(v=>v.origen==='No Planificada')},
+              {label:'Informes Publicados',value:histStats.informes.length,pct:histStats.total?Math.round(histStats.informes.length/histStats.total*100):0,accent:'#28A05A',icon:FileCheck,key:'informes',visits:histStats.informes},
             ].map(c=>{const isA=histDrill?.type==='stat'&&histDrill.value===c.key;
               return <div key={c.key} onClick={()=>setHistDrill(isA?null:{type:'stat',value:c.key,visits:c.visits})}
                 style={{background:isA?'#FFFAF0':'#fff',borderRadius:11,border:`1px solid ${isA?c.accent:C.grayLight}`,padding:'11px 15px',flex:'1 1 140px',minWidth:135,borderTop:`3px solid ${c.accent}`,cursor:'pointer',transition:'all 0.2s',boxShadow:isA?`0 4px 12px ${c.accent}20`:'none'}}>
                 <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:5}}><div style={{width:26,height:26,borderRadius:7,background:`${c.accent}15`,display:'flex',alignItems:'center',justifyContent:'center'}}><c.icon size={13} color={c.accent}/></div><span style={{fontSize:9,fontWeight:700,color:C.gray,textTransform:'uppercase',flex:1}}>{c.label}</span><ChevronDown size={10} color={C.gray} style={{transform:isA?'rotate(180deg)':'none'}}/></div>
-                <div style={{fontSize:24,fontWeight:800,color:C.text}}>{c.value}</div>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                  <div style={{fontSize:24,fontWeight:800,color:C.text}}>{c.value}</div>
+                  {c.pct!==null&&<div style={{fontSize:11,fontWeight:500,color:'#aaa'}}>{c.pct}%</div>}
+                </div>
               </div>;
             })}
           </div>
