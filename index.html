@@ -754,7 +754,7 @@ function MapaChile({byRegion, onRegionClick, activeRegion}) {
   );
 }
 
-function VisitTable({rows,title,showClose,onClose,canEdit,onInforme,onRecintoClick}){"
+function VisitTable({rows,title,showClose,onClose,canEdit,onInforme,onRecintoClick}){
   const [expanded, setExpanded] = useState(null);
   if(!rows||rows.length===0)return null;
   return (
