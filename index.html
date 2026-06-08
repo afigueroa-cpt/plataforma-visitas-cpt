@@ -692,26 +692,15 @@ function MapaChile({byRegion, onRegionClick, activeRegion}) {
     <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
       <svg viewBox="0 0 100 520" width={82} style={{flexShrink:0,display:'block'}}>
         <defs>
-          <linearGradient id="chileGrad" x1="0.3" y1="0" x2="0.7" y2="1">
+          <linearGradient id="cptChileGrad" x1="0.3" y1="0" x2="0.7" y2="1">
             <stop offset="0%" stopColor="#7ec8e3"/>
             <stop offset="35%" stopColor="#3a9fd8"/>
             <stop offset="65%" stopColor="#1b5fa8"/>
             <stop offset="100%" stopColor="#0d2f6b"/>
           </linearGradient>
         </defs>
-        <path d={[
-          'M48,0 L70,2 L78,8 L82,18 L84,35 L84,55 L82,75',
-          'L80,95 L78,115 L76,135 L73,155 L70,172 L66,188',
-          'L62,205 L58,222 L55,240 L53,258 L51,278 L50,298',
-          'L48,318 L44,338 L38,360 L30,382 L20,405',
-          'L12,425 L6,448 L4,468 L6,488 L10,505 L16,518 L22,520',
-          'L18,505 L16,488 L18,468 L24,448 L32,428',
-          'L40,408 L48,385 L54,362 L57,340 L58,318',
-          'L59,298 L59,278 L58,258 L57,238 L56,218',
-          'L56,198 L58,178 L62,158 L66,138 L70,118',
-          'L72,98 L74,78 L74,58 L72,38 L68,18 L62,6 L54,1 Z'
-        ].join(' ')} fill="url(#chileGrad)" stroke="#0a2040" strokeWidth="0.8"/>
-        <path d="M32,428 L44,422 L48,432 L46,448 L36,452 L28,444 Z" fill="url(#chileGrad)" stroke="#0a2040" strokeWidth="0.6"/>
+        <path d="M48,0 L70,2 L78,8 L82,18 L84,35 L84,55 L82,75 L80,95 L78,115 L76,135 L73,155 L70,172 L66,188 L62,205 L58,222 L55,240 L53,258 L51,278 L50,298 L48,318 L44,338 L38,360 L30,382 L20,405 L12,425 L6,448 L4,468 L6,488 L10,505 L16,518 L22,520 L18,505 L16,488 L18,468 L24,448 L32,428 L40,408 L48,385 L54,362 L57,340 L58,318 L59,298 L59,278 L58,258 L57,238 L56,218 L56,198 L58,178 L62,158 L66,138 L70,118 L72,98 L74,78 L74,58 L72,38 L68,18 L62,6 L54,1 Z" fill="url(#cptChileGrad)" stroke="#0a2040" strokeWidth="0.8"/>
+        <path d="M32,428 L44,422 L48,432 L46,448 L36,452 L28,444 Z" fill="url(#cptChileGrad)" stroke="#0a2040" strokeWidth="0.6"/>
         <path d="M20,470 L30,464 L34,474 L28,482 L18,480 Z" fill="#1b5fa8" stroke="#0a2040" strokeWidth="0.5"/>
         <path d="M10,490 L20,485 L22,496 L14,500 L8,496 Z" fill="#1b5fa8" stroke="#0a2040" strokeWidth="0.5"/>
       </svg>
