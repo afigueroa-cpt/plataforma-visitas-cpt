@@ -690,21 +690,7 @@ function MapaChile({byRegion, onRegionClick, activeRegion}) {
   };
   return (
     <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-      <svg viewBox="0 0 80 560" width={55} style={{flexShrink:0,display:'block'}}>
-        <defs>
-          <linearGradient id="cptChileGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#a8d8ea"/>
-            <stop offset="30%" stopColor="#5ba4cf"/>
-            <stop offset="60%" stopColor="#1e6eb5"/>
-            <stop offset="100%" stopColor="#0b2d6e"/>
-          </linearGradient>
-        </defs>
-        <path d="M38,2 C50,1 60,3 66,8 C70,12 72,20 72,30 C72,42 70,55 68,68 C66,82 64,96 62,110 C60,124 58,138 56,150 C54,162 52,173 50,184 C48,195 46,206 44,218 C42,230 40,242 38,255 C36,268 34,282 32,296 C30,310 28,324 26,338 C23,354 20,370 16,386 C12,402 8,417 5,432 C3,444 2,456 3,465 C4,474 7,482 10,489 C13,496 16,503 18,510 C20,517 20,524 19,530 C22,525 24,518 25,510 C26,501 26,492 27,482 C28,470 30,457 34,444 C38,430 43,416 47,402 C51,388 54,374 56,360 C58,346 59,332 60,318 C61,304 62,290 62,276 C62,262 61,248 60,235 C59,222 58,210 58,198 C58,186 59,174 60,162 C61,150 62,138 63,126 C64,113 65,100 65,87 C65,73 64,59 62,46 C60,32 56,18 50,8 Z" fill="url(#cptChileGrad)" stroke="#0b2050" strokeWidth="0.5"/>
-        <path d="M26,444 C30,438 36,436 40,440 C42,447 40,456 36,460 C31,463 25,460 24,453 Z" fill="#1e6eb5" stroke="#0b2050" strokeWidth="0.4"/>
-        <path d="M18,472 C22,468 27,468 28,474 C28,480 23,484 18,482 Z" fill="#1e6eb5" stroke="#0b2050" strokeWidth="0.4"/>
-        <path d="M10,492 C14,488 19,489 20,494 C20,500 15,503 10,501 Z" fill="#1e6eb5" stroke="#0b2050" strokeWidth="0.4"/>
-        <path d="M5,510 C10,506 16,507 17,513 C17,519 11,522 6,520 Z" fill="#0b2d6e" stroke="#0b2050" strokeWidth="0.4"/>
-      </svg>
+      <img src="mapa-chile.png" alt="Mapa Chile" style={{width:80,flexShrink:0,objectFit:'contain',alignSelf:'stretch'}}/>
       <div style={{display:'flex',flexDirection:'column',gap:3,flex:1,minWidth:0}}>
         {REGIONES.map(name=>{
           const d = dataMap[name];
