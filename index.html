@@ -689,8 +689,8 @@ function MapaChile({byRegion, onRegionClick, activeRegion}) {
     return `rgb(${r},${g},${b})`;
   };
   return (
-    <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-      <img src="mapa-chile.png" alt="Mapa Chile" style={{width:80,flexShrink:0,objectFit:'contain',alignSelf:'stretch'}}/>
+    <div style={{display:'flex',gap:16,alignItems:'stretch'}}>
+      <img src="mapa-chile.png" alt="Mapa Chile" style={{width:100,flexShrink:0,objectFit:'contain',objectPosition:'top'}}/>
       <div style={{display:'flex',flexDirection:'column',gap:3,flex:1,minWidth:0}}>
         {REGIONES.map(name=>{
           const d = dataMap[name];
